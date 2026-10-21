@@ -68,7 +68,7 @@ public class MainActivity extends Activity {
         public String getLocalModelStatus() {
             try { return LocalLlm.INSTANCE.status(getApplicationContext()).toString(); }
             catch (Exception e) {
-                return "{\\"ready\\":false,\\"error\\":\\"Не удалось получить статус модели\\"}";
+                return "{\"ready\":false,\"error\":\"Не удалось получить статус модели\"}";
             }
         }
 
