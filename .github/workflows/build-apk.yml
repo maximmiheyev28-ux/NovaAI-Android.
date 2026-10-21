@@ -1,0 +1,63 @@
+name: Build Nova AI APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "NovaAI_Android_Project_0_1_2.zip"
+      - ".github/workflows/build-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Extract project
+        run: |
+          mkdir -p unpacked
+          unzip -q NovaAI_Android_Project_0_1_2.zip -d unpacked
+          find unpacked -type f \( -name settings.gradle -o -name settings.gradle.kts \)
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -e
+          PROJECT_FILE=$(find unpacked -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "Gradle project not found in archive"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$PROJECT_FILE")
+          cd "$PROJECT_DIR"
+          gradle --no-daemon assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaAI-debug-apk
+          path: unpacked/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+
+
