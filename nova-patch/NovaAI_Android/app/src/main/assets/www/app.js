@@ -5,7 +5,7 @@ let history = JSON.parse(localStorage.getItem("nova.history") || "[]");
 let settings = JSON.parse(localStorage.getItem("nova.settings") || "{}");
 let busy = false, callbackCounter = 0;
 const pending = new Map();
-const FREE_PROVIDERS = []; // No anonymous cloud endpoint is assumed reliable or permanently free.
+const FREE_PROVIDERS = []; // Providers are configured explicitly; no anonymous endpoint is silently trusted.
 
 window.__novaApiCallback = (id, raw) => {
   const done = pending.get(id); if (!done) return; pending.delete(id);
@@ -15,9 +15,9 @@ function saveHistory(){ localStorage.setItem("nova.history", JSON.stringify(hist
 function setMode(next){
   mode=next;localStorage.setItem("nova.mode",mode);
   document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));
-  const welcomeText=$("#welcomeText"); if(welcomeText) welcomeText.textContent=mode==="solo"?"Локальная модель находится в разработке. Облачный ответ доступен после настройки совместимого API.":"Сравнение ответов пока недоступно: сервисы не настроены, локальная модель не интегрирована.";
-  const composerNote=$("#composerNote"); if(composerNote) composerNote.textContent=mode==="council"?"Автоматический опрос бесплатных сервисов":"Автоматическое подключение бесплатного ИИ";
-  const connectionStatus=$("#connectionStatus"); if(connectionStatus) connectionStatus.textContent=mode==="council"?"Совет ИИ · не настроен":"Модель не настроена";
+  const welcomeText=$("#welcomeText"); if(welcomeText) welcomeText.textContent=mode==="solo"?"Ответьте через подключённый API. Локальная модель пока не встроена.":"Добавь до трёх совместимых API в настройках: Nova опросит их параллельно и покажет сравнение ответов.";
+  const composerNote=$("#composerNote"); if(composerNote) composerNote.textContent=mode==="council"?"Параллельный опрос настроенных моделей":"Ответ от настроенной модели";
+  const connectionStatus=$("#connectionStatus"); if(connectionStatus) connectionStatus.textContent=mode==="council"?"Совет ИИ · "+getProviders().length+" моделей":"Модель · "+(getProviders().length?"настроена":"не настроена");
 }
 function addMessage(role,content,label,persist=true){
   $("#welcome")?.remove();
@@ -52,27 +52,37 @@ function scoreAnswer(answer){
   if(/(.)\1{8,}/.test(s))score-=3;
   return score;
 }
+function getProviders(){
+  const list=Array.isArray(settings.providers)?settings.providers:[];
+  if(!list.length&&settings.endpoint&&settings.modelName) return [{name:settings.providerName||"Настроенный API",endpoint:settings.endpoint,model:settings.modelName,key:settings.apiKey||""}];
+  return list.filter(p=>p&&p.endpoint&&p.model).slice(0,3);
+}
+function escapeText(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 async function answerWithFreeServices(userText){
-  const messages=makeMessages(userText);
-  const configured=settings.endpoint&&settings.modelName
-    ? await apiCall({name:settings.providerName||"Настроенный API",endpoint:settings.endpoint,model:settings.modelName,key:settings.apiKey},messages)
-    : null;
-  if(configured?.ok&&configured.answer?.trim()) return {answer:configured.answer,source:configured.provider,details:[configured]};
-  if(configured?.error) return {error:"Не удалось получить ответ от настроенного сервиса: "+configured.error};
-  return {error:mode==="council"
-    ? "Режим «Совет ИИ» пока не подключён. Для него нужны проверенные и доступные сервисы. Локальная модель ещё не интегрирована."
-    : "Локальная модель ещё не интегрирована, а облачный API не настроен. Nova не будет выдавать заранее заготовленный текст или эвристическую оценку за ответ нейросети."};
+  const providers=getProviders();
+  if(!providers.length) return {error:mode==="council"
+    ? "Совет ИИ не настроен: добавь минимум два совместимых API в настройках."
+    : "Модель не настроена. Добавь API endpoint и идентификатор модели в настройках. Локальная модель пока не встроена."};
+  const chosen=mode==="council"?providers:providers.slice(0,1);
+  const results=await Promise.all(chosen.map(p=>apiCall(p,makeMessages(userText)).catch(e=>({ok:false,provider:p.name,error:e.message||"Ошибка запроса"}))));
+  const good=results.filter(r=>r.ok&&r.answer&&r.answer.trim());
+  if(!good.length) return {error:"Ни одна модель не ответила. "+results.map(r=>(r.provider||"Модель")+": "+(r.error||"пустой ответ")).join(" · ")};
+  if(mode!=="council") return {answer:good[0].answer,source:good[0].provider};
+  const ranked=good.map(r=>({...r,score:scoreAnswer(r.answer)})).sort((a,b)=>b.score-a.score);
+  const sections=ranked.map((r,i)=>"Модель: "+r.provider+"\n"+r.answer);
+  const meta="Сравнение "+good.length+" из "+chosen.length+" ответивших моделей. Порядок рассчитан по простой эвристике длины и структуры, а не по проверке фактической точности.\n\n"+sections.join("\n\n──────────\n\n");
+  return {answer:ranked[0].answer,source:ranked[0].provider,meta};
 }
 async function send(text){
   text=text.trim();if(!text||busy)return;
   busy=true;sendBtn.disabled=true;promptBox.value="";promptBox.style.height="auto";addMessage("user",text,"Ты");
-  const thinking=document.createElement("div");thinking.className="typing";thinking.textContent=mode==="council"?"Опрос бесплатных ИИ-сервисов…":"Nova получает ответ…";chat.append(thinking);chat.scrollTop=chat.scrollHeight;
+  const thinking=document.createElement("div");thinking.className="typing";thinking.textContent=mode==="council"?"Параллельный опрос моделей…":"Nova получает ответ…";chat.append(thinking);chat.scrollTop=chat.scrollHeight;
   try{
     const result=await answerWithFreeServices(text);thinking.remove();
     if(result.answer){
       const label=mode==="council"?"Nova · Совет ИИ": "Nova · "+result.source;
       addMessage("assistant",result.answer,label);
-      if(result.meta)addMessage("assistant",result.meta,"Как выбран ответ",false);
+      if(result.meta)addMessage("assistant",result.meta,"Сравнение моделей",false);
     }else addMessage("assistant",result.error||"Все сервисы временно недоступны.","Нет ответа");
   }catch(e){thinking.remove();addMessage("assistant","Ошибка: "+(e.message||String(e)),"Ошибка");}
   finally{thinking.remove();busy=false;sendBtn.disabled=false;promptBox.focus();}
@@ -82,15 +92,15 @@ document.querySelectorAll(".suggestion").forEach(b=>b.addEventListener("click",(
 $("#composer").addEventListener("submit",e=>{e.preventDefault();send(promptBox.value);});
 promptBox.addEventListener("input",()=>{promptBox.style.height="auto";promptBox.style.height=Math.min(promptBox.scrollHeight,140)+"px";});
 promptBox.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#composer").requestSubmit();}});
-$("#settingsOpen").addEventListener("click",()=>{$("#providerName").value=settings.providerName||"";$("#endpoint").value=settings.endpoint||"";$("#apiKey").value=settings.apiKey||"";$("#modelName").value=settings.modelName||"";$("#settingsDialog").showModal();});
+$("#settingsOpen").addEventListener("click",()=>{const p=getProviders();const first=p[0]||{};$("#providerName").value=first.name||settings.providerName||"";$("#endpoint").value=first.endpoint||settings.endpoint||"";$("#apiKey").value=first.key||settings.apiKey||"";$("#modelName").value=first.model||settings.modelName||"";$("#endpoint2").value=p[1]?.endpoint||"";$("#providerName2").value=p[1]?.name||"";$("#apiKey2").value=p[1]?.key||"";$("#modelName2").value=p[1]?.model||"";$("#endpoint3").value=p[2]?.endpoint||"";$("#providerName3").value=p[2]?.name||"";$("#apiKey3").value=p[2]?.key||"";$("#modelName3").value=p[2]?.model||"";$("#settingsDialog").showModal();});
 $("#providerPreset").addEventListener("change",e=>{
  if(e.target.value==="openrouter"){$("#providerName").value="OpenRouter";$("#endpoint").value="https://openrouter.ai/api/v1/chat/completions";$("#modelName").value="openrouter/free";}
  else if(e.target.value==="groq"){$("#providerName").value="Groq";$("#endpoint").value="https://api.groq.com/openai/v1/chat/completions";$("#modelName").value="llama-3.3-70b-versatile";}
  else if(e.target.value==="custom")$("#providerName").value="Совместимый API";
 });
 $("#settingsClose").addEventListener("click",()=>$("#settingsDialog").close());
-$("#settingsForm").addEventListener("submit",e=>{e.preventDefault();settings={providerName:$("#providerName").value.trim(),endpoint:$("#endpoint").value.trim(),apiKey:$("#apiKey").value,modelName:$("#modelName").value.trim()};localStorage.setItem("nova.settings",JSON.stringify(settings));$("#settingsDialog").close();setMode(mode);});
-$("#forgetKey").addEventListener("click",()=>{settings.apiKey="";localStorage.setItem("nova.settings",JSON.stringify(settings));$("#apiKey").value="";});
+$("#settingsForm").addEventListener("submit",e=>{e.preventDefault();settings={providers:[{name:$("#providerName").value.trim()||"Модель 1",endpoint:$("#endpoint").value.trim(),key:$("#apiKey").value,model:$("#modelName").value.trim()},{name:$("#providerName2").value.trim()||"Модель 2",endpoint:$("#endpoint2").value.trim(),key:$("#apiKey2").value,model:$("#modelName2").value.trim()},{name:$("#providerName3").value.trim()||"Модель 3",endpoint:$("#endpoint3").value.trim(),key:$("#apiKey3").value,model:$("#modelName3").value.trim()}].filter(p=>p.endpoint&&p.model)};localStorage.setItem("nova.settings",JSON.stringify(settings));$("#settingsDialog").close();setMode(mode);});
+$("#forgetKey").addEventListener("click",()=>{settings.apiKey="";if(Array.isArray(settings.providers))settings.providers.forEach(p=>p.key="");localStorage.setItem("nova.settings",JSON.stringify(settings));["apiKey","apiKey2","apiKey3"].forEach(id=>$("#"+id).value="");});
 $("#clearChat").addEventListener("click",()=>{if(confirm("Очистить историю чата?")){history=[];saveHistory();chat.innerHTML="";chat.append(makeWelcome());setMode(mode);}});
 function makeWelcome(){const s=document.createElement("section");s.className="welcome";s.id="welcome";s.innerHTML='<div class="orb"><span>✦</span></div><h1>Чем займёмся?</h1><p id="welcomeText"></p><div class="suggestions"><button class="suggestion">Объясни, как работает нейросеть</button><button class="suggestion">Помоги составить план проекта</button><button class="suggestion">Придумай идею приложения</button></div>';s.querySelectorAll(".suggestion").forEach(b=>b.addEventListener("click",()=>send(b.textContent)));return s;}
 $("#wipeAll").addEventListener("click",()=>{if(confirm("Удалить историю, настройки и локальные данные Nova?")){localStorage.removeItem("nova.history");localStorage.removeItem("nova.settings");localStorage.removeItem("nova.mode");history=[];settings={};$("#settingsDialog").close();location.reload();}});
