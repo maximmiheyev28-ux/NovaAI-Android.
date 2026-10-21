@@ -15,9 +15,9 @@ function saveHistory(){ localStorage.setItem("nova.history", JSON.stringify(hist
 function setMode(next){
   mode=next;localStorage.setItem("nova.mode",mode);
   document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));
-  const welcomeText=$("#welcomeText"); if(welcomeText) welcomeText.textContent=mode==="solo"?"Ответьте через подключённый API. Локальная модель пока не встроена.":"Добавь до трёх совместимых API в настройках: Nova опросит их параллельно и покажет сравнение ответов.";
+  const welcomeText=$("#welcomeText"); if(welcomeText) welcomeText.textContent=mode==="solo"?"Локальная нейросеть Qwen запускается на устройстве. При первом запросе потребуется скачать модель (~429 МБ); затем она работает без интернета.":"Добавь до трёх совместимых API в настройках: Nova опросит их параллельно и покажет сравнение ответов.";
   const composerNote=$("#composerNote"); if(composerNote) composerNote.textContent=mode==="council"?"Параллельный опрос настроенных моделей":"Ответ от настроенной модели";
-  const connectionStatus=$("#connectionStatus"); if(connectionStatus) connectionStatus.textContent=mode==="council"?"Совет ИИ · "+getProviders().length+" моделей":"Модель · "+(getProviders().length?"настроена":"не настроена");
+  const connectionStatus=$("#connectionStatus"); if(connectionStatus) if(mode==="council")connectionStatus.textContent="Совет ИИ · "+getProviders().length+" моделей";else{try{const st=JSON.parse(window.NovaBridge?.getLocalModelStatus?.()||"{}");connectionStatus.textContent=st.ready?"Локальная модель · готова":"Локальная модель · загрузится при первом запросе";}catch(_){connectionStatus.textContent="Локальная модель";}}
 }
 function addMessage(role,content,label,persist=true){
   $("#welcome")?.remove();
@@ -36,6 +36,20 @@ function apiCall(provider,messages){
     pending.set(id,r=>{clearTimeout(timeout);r.provider=provider.name;resolve(r);});
     try{window.NovaBridge.chat(JSON.stringify({endpoint:provider.endpoint,apiKey:provider.key||"",modelName:provider.model,messages}),id);}
     catch(e){clearTimeout(timeout);pending.delete(id);resolve({ok:false,provider:provider.name,error:e.message||"Ошибка запроса"});}
+  });
+}
+window.__novaLocalProgress = (id, message) => {
+  const active = document.querySelector(".typing");
+  if (active) active.textContent = String(message || "Локальная модель работает…");
+};
+function localCall(messages){
+  return new Promise(resolve=>{
+    if(!window.NovaBridge?.localChat){resolve({ok:false,error:"Модуль локальной нейросети недоступен в этой сборке."});return;}
+    const id="nova-local-"+(++callbackCounter);
+    const timeout=setTimeout(()=>{pending.delete(id);resolve({ok:false,error:"Локальная модель работает слишком долго. Проверь свободную память устройства и повтори запрос."});},20*60*1000);
+    pending.set(id,result=>{clearTimeout(timeout);resolve(result);});
+    try{window.NovaBridge.localChat(JSON.stringify({messages}),id);}
+    catch(e){clearTimeout(timeout);pending.delete(id);resolve({ok:false,error:e.message||"Ошибка локальной модели"});}
   });
 }
 function makeMessages(userText){
@@ -59,30 +73,36 @@ function getProviders(){
 }
 function escapeText(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 async function answerWithFreeServices(userText){
-  const providers=getProviders();
-  if(!providers.length) return {error:mode==="council"
-    ? "Совет ИИ не настроен: добавь минимум два совместимых API в настройках."
-    : "Модель не настроена. Добавь API endpoint и идентификатор модели в настройках. Локальная модель пока не встроена."};
-  const chosen=mode==="council"?providers:providers.slice(0,1);
-  const results=await Promise.all(chosen.map(p=>apiCall(p,makeMessages(userText)).catch(e=>({ok:false,provider:p.name,error:e.message||"Ошибка запроса"}))));
+  const messages=makeMessages(userText), providers=getProviders();
+  if(mode==="solo"){
+    const local=await localCall(messages);
+    if(local?.ok&&local.answer?.trim()) return {answer:local.answer,source:local.provider||"Локальная Qwen 0.5B",local:true};
+    if(providers.length){
+      const fallback=await apiCall(providers[0],messages);
+      if(fallback.ok&&fallback.answer?.trim()) return {answer:fallback.answer,source:fallback.provider,meta:"Локальная модель недоступна; ответ получен от настроенного облачного API."};
+      return {error:(local?.error||"Локальная модель недоступна.")+"\nРезервный API: "+(fallback.error||"нет ответа")};
+    }
+    return {error:local?.error||"Локальная модель не ответила."};
+  }
+  if(!providers.length) return {error:"Режим «Совет ИИ» не настроен. Добавь минимум две совместимые модели в настройках. Локальная модель работает отдельно в режиме Nova."};
+  const results=await Promise.all(providers.map(p=>apiCall(p,messages).catch(e=>({ok:false,provider:p.name,error:e.message||"Ошибка запроса"}))));
   const good=results.filter(r=>r.ok&&r.answer&&r.answer.trim());
   if(!good.length) return {error:"Ни одна модель не ответила. "+results.map(r=>(r.provider||"Модель")+": "+(r.error||"пустой ответ")).join(" · ")};
-  if(mode!=="council") return {answer:good[0].answer,source:good[0].provider};
   const ranked=good.map(r=>({...r,score:scoreAnswer(r.answer)})).sort((a,b)=>b.score-a.score);
-  const sections=ranked.map((r,i)=>"Модель: "+r.provider+"\n"+r.answer);
-  const meta="Сравнение "+good.length+" из "+chosen.length+" ответивших моделей. Порядок рассчитан по простой эвристике длины и структуры, а не по проверке фактической точности.\n\n"+sections.join("\n\n──────────\n\n");
+  const sections=ranked.map(r=>"Модель: "+r.provider+"\n"+r.answer);
+  const meta="Сравнение "+good.length+" из "+providers.length+" ответивших моделей. Порядок рассчитан по эвристике длины и структуры, а не по проверке фактической точности.\n\n"+sections.join("\n\n──────────\n\n");
   return {answer:ranked[0].answer,source:ranked[0].provider,meta};
 }
 async function send(text){
   text=text.trim();if(!text||busy)return;
   busy=true;sendBtn.disabled=true;promptBox.value="";promptBox.style.height="auto";addMessage("user",text,"Ты");
-  const thinking=document.createElement("div");thinking.className="typing";thinking.textContent=mode==="council"?"Параллельный опрос моделей…":"Nova получает ответ…";chat.append(thinking);chat.scrollTop=chat.scrollHeight;
+  const thinking=document.createElement("div");thinking.className="typing";thinking.textContent=mode==="council"?"Параллельный опрос моделей…":"Запуск локальной нейросети…";chat.append(thinking);chat.scrollTop=chat.scrollHeight;
   try{
     const result=await answerWithFreeServices(text);thinking.remove();
     if(result.answer){
       const label=mode==="council"?"Nova · Совет ИИ": "Nova · "+result.source;
       addMessage("assistant",result.answer,label);
-      if(result.meta)addMessage("assistant",result.meta,"Сравнение моделей",false);
+      if(result.meta)addMessage("assistant",result.meta,result.local?"Резервный режим":"Сравнение моделей",false);
     }else addMessage("assistant",result.error||"Все сервисы временно недоступны.","Нет ответа");
   }catch(e){thinking.remove();addMessage("assistant","Ошибка: "+(e.message||String(e)),"Ошибка");}
   finally{thinking.remove();busy=false;sendBtn.disabled=false;promptBox.focus();}
