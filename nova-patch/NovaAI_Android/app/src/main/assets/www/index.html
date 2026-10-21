@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10121a"><meta name="description" content="Nova AI — персональный ИИ-ассистент">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="style.css">
+<title>Nova AI</title>
+</head>
+<body>
+<div class="app-shell">
+<header class="topbar"><div class="brand-mark">N</div><div class="brand"><strong>Nova AI</strong><span id="connectionStatus">Требуется подключение модели</span></div><button class="icon-btn" id="settingsOpen" aria-label="Настройки" title="Настройки">⚙</button></header>
+<nav class="mode-switch" aria-label="Режим работы">
+<button class="mode active" data-mode="solo"><span class="mode-icon">◈</span><span><b>Nova</b><small>Самостоятельно</small></span></button>
+<button class="mode" data-mode="council"><span class="mode-icon">◎</span><span><b>Совет ИИ</b><small>Несколько моделей</small></span></button>
+</nav>
+<main id="chat" class="chat"><section class="welcome" id="welcome"><div class="orb"><span>✦</span></div><h1>Чем займёмся?</h1><p id="welcomeText">Подключи языковую модель в настройках, чтобы начать.</p><div class="suggestions"><button class="suggestion">Объясни, как работает нейросеть</button><button class="suggestion">Помоги составить план проекта</button><button class="suggestion">Придумай идею приложения</button></div></section></main>
+<form id="composer" class="composer"><textarea id="prompt" rows="1" placeholder="Напиши сообщение…" aria-label="Сообщение"></textarea><button class="send" id="sendBtn" type="submit" aria-label="Отправить">↑</button><div class="composer-note" id="composerNote">Для ответов ИИ укажи API и модель в настройках</div></form>
+<footer class="bottom"><span class="dot"></span><span id="footerText">История сохраняется на устройстве</span><button id="clearChat">Очистить чат</button></footer>
+</div>
+<dialog id="settingsDialog"><div class="dialog-head"><div><h2>Настройки Nova</h2><p>Подключение языковой модели</p></div><button class="icon-btn" id="settingsClose" aria-label="Закрыть">×</button></div>
+<form id="settingsForm">
+<label class="field">Быстрый выбор провайдера<select id="providerPreset"><option value="">Выбрать…</option><option value="openrouter">OpenRouter (есть бесплатные модели)</option><option value="groq">Groq (доступность зависит от аккаунта)</option><option value="custom">Другой совместимый API</option></select></label>
+<label class="field">Название модели / провайдера<input id="providerName" placeholder="Например, OpenRouter"></label>
+<label class="field">Совместимый API endpoint<input id="endpoint" type="url" placeholder="https://…/v1/chat/completions" autocomplete="url"></label>
+<label class="field">API-ключ (если требуется)<input id="apiKey" type="password" placeholder="Вставь ключ провайдера" autocomplete="off"></label>
+<label class="field">Идентификатор модели<input id="modelName" placeholder="Название модели у провайдера"></label>
+<div class="warning"><b>Важно:</b> ключ хранится локально в данных приложения и не является защищённым хранилищем Android. Используй только ключи с небольшими лимитами и доверенного провайдера. Для работы нужен интернет и доступ к API.</div>
+<div class="settings-actions"><button type="button" class="secondary" id="forgetKey">Удалить ключ</button><button type="submit" class="primary">Сохранить</button></div>
+</form>
+<div class="local-data"><b>Локальные данные</b><p>История и настройки сохраняются на устройстве. Очистка данных приложения удалит их.</p><button type="button" class="secondary" id="wipeAll">Удалить все данные</button></div>
+</dialog>
+<script src="app.js"></script>
+</body></html>
