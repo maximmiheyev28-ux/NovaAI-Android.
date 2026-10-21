@@ -26,7 +26,52 @@ public class MainActivity extends Activity {
     private final ExecutorService network = Executors.newFixedThreadPool(3);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
+    public interface LocalCallback {
+        void onProgress(String progress);
+        void onResult(String result);
+    }
+
     public class NovaBridge {
+        @JavascriptInterface
+        public void localChat(String requestJson, String callbackId) {
+            try {
+                LocalLlm.INSTANCE.generate(getApplicationContext(), requestJson, new LocalCallback() {
+                    @Override public void onProgress(String progress) {
+                        mainHandler.post(() -> {
+                            if (webView != null) webView.evaluateJavascript(
+                                "window.__novaLocalProgress && window.__novaLocalProgress(" +
+                                JSONObject.quote(callbackId) + "," + JSONObject.quote(progress) + ")", null);
+                        });
+                    }
+                    @Override public void onResult(String result) {
+                        mainHandler.post(() -> {
+                            if (webView != null) webView.evaluateJavascript(
+                                "window.__novaApiCallback(" + JSONObject.quote(callbackId) + "," +
+                                JSONObject.quote(result) + ")", null);
+                        });
+                    }
+                });
+            } catch (Exception e) {
+                try {
+                    JSONObject error = new JSONObject().put("ok", false).put("error",
+                        e.getMessage() == null ? "Ошибка локальной модели" : e.getMessage());
+                    mainHandler.post(() -> {
+                        if (webView != null) webView.evaluateJavascript(
+                            "window.__novaApiCallback(" + JSONObject.quote(callbackId) + "," +
+                            JSONObject.quote(error.toString()) + ")", null);
+                    });
+                } catch (Exception ignored) { }
+            }
+        }
+
+        @JavascriptInterface
+        public String getLocalModelStatus() {
+            try { return LocalLlm.INSTANCE.status(getApplicationContext()).toString(); }
+            catch (Exception e) {
+                return "{\\"ready\\":false,\\"error\\":\\"Не удалось получить статус модели\\"}";
+            }
+        }
+
         @JavascriptInterface
         public void chat(String requestJson, String callbackId) {
             network.execute(() -> {
