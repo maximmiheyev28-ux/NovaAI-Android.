@@ -40,7 +40,7 @@ function apiCall(provider,messages){
 }
 function makeMessages(userText){
   const system="Ты — Nova AI. Отвечай на языке пользователя, ясно, полезно и без выдуманных фактов. Если не уверен, обозначь неопределённость.";
-  return [{role:"system",content:system},...history.slice(-12).filter(m=>m.role==="user"||m.role==="assistant").map(m=>({role:m.role,content:m.content})),{role:"user",content:userText}];
+  return [{role:"system",content:system},...history.slice(-13,-1).filter(m=>m.role==="user"||m.role==="assistant").map(m=>({role:m.role,content:m.content})),{role:"user",content:userText}];
 }
 function scoreAnswer(answer){
   const s=answer.trim();if(!s)return -100;
