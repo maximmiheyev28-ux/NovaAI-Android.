@@ -23,7 +23,7 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
     private WebView webView;
-    private final ExecutorService network = Executors.newSingleThreadExecutor();
+    private final ExecutorService network = Executors.newFixedThreadPool(3);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public class NovaBridge {
@@ -50,6 +50,7 @@ public class MainActivity extends Activity {
                     body.put("model", model);
                     body.put("messages", req.getJSONArray("messages"));
                     body.put("temperature", 0.7);
+                    body.put("max_tokens", 1200);
                     try (OutputStream out = connection.getOutputStream()) {
                         out.write(body.toString().getBytes(StandardCharsets.UTF_8));
                     }
