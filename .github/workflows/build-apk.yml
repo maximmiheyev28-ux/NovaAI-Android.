@@ -37,6 +37,7 @@ jobs:
           cp -R nova-patch/NovaAI_Android/. unpacked/NovaAI_Android/
           python3 - <<'PY'
           from pathlib import Path
+          import re
           app = Path("unpacked/NovaAI_Android/app/build.gradle")
           lines = app.read_text().splitlines()
           if not any("org.jetbrains.kotlin.android" in line for line in lines):
