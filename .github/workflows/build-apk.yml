@@ -6,6 +6,7 @@ on:
     paths:
       - "NovaAI_Android_Project_0_1_2.zip"
       - "nova-patch/**"
+      - "model-runtime/**"
       - ".github/workflows/build-apk.yml"
 
 permissions:
