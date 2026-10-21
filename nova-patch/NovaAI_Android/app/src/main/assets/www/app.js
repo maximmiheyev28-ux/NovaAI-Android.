@@ -5,10 +5,8 @@ let history = JSON.parse(localStorage.getItem("nova.history") || "[]");
 let settings = JSON.parse(localStorage.getItem("nova.settings") || "{}");
 let busy = false, callbackCounter = 0;
 const pending = new Map();
-const FREE_PROVIDERS = [
-  {name:"Vireonix", endpoint:"https://vireonix.ai/v1/chat/completions", model:"auto"},
-  {name:"BlockRun", endpoint:"https://blockrun.ai/api/v1/chat/completions", model:"nvidia/nemotron-3.5-lightning"}
-];
+const FREE_PROVIDERS = []; // No anonymous cloud endpoint is assumed reliable or permanently free.
+
 window.__novaApiCallback = (id, raw) => {
   const done = pending.get(id); if (!done) return; pending.delete(id);
   try { done(JSON.parse(raw)); } catch (_) { done({ok:false,error:"Не удалось разобрать ответ API."}); }
@@ -17,9 +15,9 @@ function saveHistory(){ localStorage.setItem("nova.history", JSON.stringify(hist
 function setMode(next){
   mode=next;localStorage.setItem("nova.mode",mode);
   document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));
-  const welcomeText=$("#welcomeText"); if(welcomeText) welcomeText.textContent=mode==="solo"?"Nova использует бесплатные облачные ИИ-сервисы без ключа, если они доступны.":"Совет ИИ опрашивает сервисы параллельно и выбирает ответ по эвристической оценке. Это не отдельная локальная языковая модель.";
+  const welcomeText=$("#welcomeText"); if(welcomeText) welcomeText.textContent=mode==="solo"?"Локальная модель находится в разработке. Облачный ответ доступен после настройки совместимого API.":"Сравнение ответов пока недоступно: сервисы не настроены, локальная модель не интегрирована.";
   const composerNote=$("#composerNote"); if(composerNote) composerNote.textContent=mode==="council"?"Автоматический опрос бесплатных сервисов":"Автоматическое подключение бесплатного ИИ";
-  const connectionStatus=$("#connectionStatus"); if(connectionStatus) connectionStatus.textContent=mode==="council"?"Совет: облачные сервисы":"Бесплатный ИИ · без ключа";
+  const connectionStatus=$("#connectionStatus"); if(connectionStatus) connectionStatus.textContent=mode==="council"?"Совет ИИ · не настроен":"Модель не настроена";
 }
 function addMessage(role,content,label,persist=true){
   $("#welcome")?.remove();
@@ -56,22 +54,14 @@ function scoreAnswer(answer){
 }
 async function answerWithFreeServices(userText){
   const messages=makeMessages(userText);
-  if(mode!=="council"){
-    const first=await apiCall(FREE_PROVIDERS[0],messages);
-    if(first.ok&&first.answer?.trim())return {answer:first.answer,source:first.provider,details:[first]};
-    const second=await apiCall(FREE_PROVIDERS[1],messages);
-    if(second.ok&&second.answer?.trim())return {answer:second.answer,source:second.provider,details:[first,second]};
-    const configured=settings.endpoint&&settings.modelName?await apiCall({name:settings.providerName||"Моя модель",endpoint:settings.endpoint,model:settings.modelName,key:settings.apiKey},messages):null;
-    if(configured?.ok&&configured.answer?.trim())return {answer:configured.answer,source:configured.provider,details:[first,second,configured]};
-    return {error:"Бесплатные сервисы сейчас недоступны. "+[first,second,configured].filter(Boolean).map(x=>x.provider+": "+(x.error||"ошибка")).join("; ")};
-  }
-  const results=await Promise.all(FREE_PROVIDERS.map(p=>apiCall(p,messages)));
-  const good=results.filter(r=>r.ok&&r.answer?.trim());
-  if(!good.length)return {error:"Не удалось получить ответы ни от одного бесплатного сервиса. "+results.map(x=>x.provider+": "+(x.error||"ошибка")).join("; ")};
-  good.sort((a,b)=>scoreAnswer(b.answer)-scoreAnswer(a.answer));
-  const best=good[0];
-  const details=good.map((r,i)=>"Ответ "+(i+1)+" ("+r.provider+") — эвристическая оценка "+Math.round(scoreAnswer(r.answer)*10)/10).join("\n");
-  return {answer:best.answer,source:best.provider,details:results,meta:"Выбран ответ сервиса "+best.provider+". Эвристическая оценка не гарантирует фактическую точность.\n"+details};
+  const configured=settings.endpoint&&settings.modelName
+    ? await apiCall({name:settings.providerName||"Настроенный API",endpoint:settings.endpoint,model:settings.modelName,key:settings.apiKey},messages)
+    : null;
+  if(configured?.ok&&configured.answer?.trim()) return {answer:configured.answer,source:configured.provider,details:[configured]};
+  if(configured?.error) return {error:"Не удалось получить ответ от настроенного сервиса: "+configured.error};
+  return {error:mode==="council"
+    ? "Режим «Совет ИИ» пока не подключён. Для него нужны проверенные и доступные сервисы. Локальная модель ещё не интегрирована."
+    : "Локальная модель ещё не интегрирована, а облачный API не настроен. Nova не будет выдавать заранее заготовленный текст или эвристическую оценку за ответ нейросети."};
 }
 async function send(text){
   text=text.trim();if(!text||busy)return;
