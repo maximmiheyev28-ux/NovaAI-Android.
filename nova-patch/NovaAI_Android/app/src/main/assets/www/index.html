@@ -17,14 +17,24 @@
 <form id="composer" class="composer"><textarea id="prompt" rows="1" placeholder="Напиши сообщение…" aria-label="Сообщение"></textarea><button class="send" id="sendBtn" type="submit" aria-label="Отправить">↑</button><div class="composer-note" id="composerNote">Для ответов ИИ укажи API и модель в настройках</div></form>
 <footer class="bottom"><span class="dot"></span><span id="footerText">История сохраняется на устройстве</span><button id="clearChat">Очистить чат</button></footer>
 </div>
-<dialog id="settingsDialog"><div class="dialog-head"><div><h2>Настройки Nova</h2><p>Автоматический бесплатный режим и дополнительные настройки</p></div><button class="icon-btn" id="settingsClose" aria-label="Закрыть">×</button></div>
+<dialog id="settingsDialog"><div class="dialog-head"><div><h2>Настройки Nova</h2><p>Подключи до трёх совместимых API; «Совет ИИ» запрашивает модели параллельно</p></div><button class="icon-btn" id="settingsClose" aria-label="Закрыть">×</button></div>
 <form id="settingsForm">
 <label class="field">Быстрый выбор провайдера<select id="providerPreset"><option value="">Выбрать…</option><option value="openrouter">OpenRouter (есть бесплатные модели)</option><option value="groq">Groq (доступность зависит от аккаунта)</option><option value="custom">Другой совместимый API</option></select></label>
 <label class="field">Название модели / провайдера<input id="providerName" placeholder="Например, OpenRouter"></label>
 <label class="field">Совместимый API endpoint<input id="endpoint" type="url" placeholder="https://…/v1/chat/completions" autocomplete="url"></label>
 <label class="field">API-ключ (если требуется)<input id="apiKey" type="password" placeholder="Вставь ключ провайдера" autocomplete="off"></label>
 <label class="field">Идентификатор модели<input id="modelName" placeholder="Название модели у провайдера"></label>
-<div class="warning"><b>Приватность:</b> в автоматическом режиме текст запроса передаётся внешним AI-сервисам. Их правила хранения и использования данных могут отличаться; не отправляй пароли, адреса, документы и другие секреты. Бесплатные сервисы могут ограничивать доступ или менять условия. Локальная языковая модель в этой сборке пока не интегрирована.</div><div class="warning"><b>Ключи:</b> если используешь свой API, ключ хранится в локальных данных приложения, а не в защищённом хранилище Android.</div>
+<div class="provider-divider"><b>Вторая модель — для режима «Совет ИИ»</b><small>Укажи endpoint и модель; ключ оставь пустым, если провайдер его не требует.</small></div>
+<label class="field">Название второй модели<input id="providerName2" placeholder="Модель 2"></label>
+<label class="field">Endpoint второй модели<input id="endpoint2" type="url" placeholder="https://…/v1/chat/completions"></label>
+<label class="field">API-ключ второй модели<input id="apiKey2" type="password" placeholder="Необязательно" autocomplete="off"></label>
+<label class="field">Идентификатор второй модели<input id="modelName2" placeholder="Название модели"></label>
+<div class="provider-divider"><b>Третья модель — необязательно</b></div>
+<label class="field">Название третьей модели<input id="providerName3" placeholder="Модель 3"></label>
+<label class="field">Endpoint третьей модели<input id="endpoint3" type="url" placeholder="https://…/v1/chat/completions"></label>
+<label class="field">API-ключ третьей модели<input id="apiKey3" type="password" placeholder="Необязательно" autocomplete="off"></label>
+<label class="field">Идентификатор третьей модели<input id="modelName3" placeholder="Название модели"></label>
+<div class="warning"><b>Приватность:</b> в автоматическом режиме текст запроса передаётся внешним AI-сервисам. Их правила хранения и использования данных могут отличаться; не отправляй пароли, адреса, документы и другие секреты. Бесплатные сервисы могут ограничивать доступ или менять условия. Локальная языковая модель в этой сборке пока не интегрирована. Для облачных моделей могут потребоваться ключи; это не гарантированно бесплатный режим.</div><div class="warning"><b>Ключи:</b> если используешь свой API, ключ хранится в локальных данных приложения, а не в защищённом хранилище Android.</div>
 <div class="settings-actions"><button type="button" class="secondary" id="forgetKey">Удалить ключ</button><button type="submit" class="primary">Сохранить</button></div>
 </form>
 <div class="local-data"><b>Локальные данные</b><p>История и настройки сохраняются на устройстве. Очистка данных приложения удалит их.</p><button type="button" class="secondary" id="wipeAll">Удалить все данные</button></div>
