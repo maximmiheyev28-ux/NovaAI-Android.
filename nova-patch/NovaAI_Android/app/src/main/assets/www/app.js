@@ -17,9 +17,9 @@ function saveHistory(){ localStorage.setItem("nova.history", JSON.stringify(hist
 function setMode(next){
   mode=next;localStorage.setItem("nova.mode",mode);
   document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));
-  $("#welcomeText").textContent=mode==="solo"?"Nova использует бесплатный облачный ИИ без ключа, если сервис доступен.":"Совет ИИ опрашивает доступные сервисы параллельно и выбирает ответ по эвристической оценке. Это не отдельная локальная языковая модель.";
-  $("#composerNote").textContent=mode==="council"?"Автоматический опрос бесплатных сервисов":"Автоматическое подключение бесплатного ИИ";
-  $("#connectionStatus").textContent=mode==="council"?"Совет: облачные сервисы":"Бесплатный ИИ · без ключа";
+  const welcomeText=$("#welcomeText"); if(welcomeText) welcomeText.textContent=mode==="solo"?"Nova использует бесплатные облачные ИИ-сервисы без ключа, если они доступны.":"Совет ИИ опрашивает сервисы параллельно и выбирает ответ по эвристической оценке. Это не отдельная локальная языковая модель.";
+  const composerNote=$("#composerNote"); if(composerNote) composerNote.textContent=mode==="council"?"Автоматический опрос бесплатных сервисов":"Автоматическое подключение бесплатного ИИ";
+  const connectionStatus=$("#connectionStatus"); if(connectionStatus) connectionStatus.textContent=mode==="council"?"Совет: облачные сервисы":"Бесплатный ИИ · без ключа";
 }
 function addMessage(role,content,label,persist=true){
   $("#welcome")?.remove();
@@ -70,7 +70,7 @@ async function answerWithFreeServices(userText){
   if(!good.length)return {error:"Не удалось получить ответы ни от одного бесплатного сервиса. "+results.map(x=>x.provider+": "+(x.error||"ошибка")).join("; ")};
   good.sort((a,b)=>scoreAnswer(b.answer)-scoreAnswer(a.answer));
   const best=good[0];
-  const details=good.map((r,i)=>"Ответ "+(i+1)+" ("+r.provider+") — "+Math.round(scoreAnswer(r.answer)*10)/10+" балла").join("\n");
+  const details=good.map((r,i)=>"Ответ "+(i+1)+" ("+r.provider+") — эвристическая оценка "+Math.round(scoreAnswer(r.answer)*10)/10).join("\n");
   return {answer:best.answer,source:best.provider,details:results,meta:"Выбран ответ сервиса "+best.provider+". Эвристическая оценка не гарантирует фактическую точность.\n"+details};
 }
 async function send(text){
