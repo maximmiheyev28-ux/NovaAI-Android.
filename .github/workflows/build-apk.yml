@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "NovaAI_Android_Project_0_1_2.zip"
+      - "nova-patch/**"
       - ".github/workflows/build-apk.yml"
 
 permissions:
@@ -13,51 +14,35 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
-          
       - uses: android-actions/setup-android@v4
-
-
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-
-      - name: Extract project
-        run: |
-          mkdir -p unpacked
-          unzip -q NovaAI_Android_Project_0_1_2.zip -d unpacked
-          find unpacked -type f \( -name settings.gradle -o -name settings.gradle.kts \)
-
-      - name: Build APK
-        shell: bash
+      - name: Extract and patch project
         run: |
           set -e
-          PROJECT_FILE=$(find unpacked -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
-          if [ -z "$PROJECT_FILE" ]; then
-            echo "Gradle project not found in archive"
-            exit 1
-          fi
-          PROJECT_DIR=$(dirname "$PROJECT_FILE")
-          cd "$PROJECT_DIR"
+          mkdir -p unpacked
+          unzip -q NovaAI_Android_Project_0_1_2.zip -d unpacked
+          cp -R nova-patch/NovaAI_Android/. unpacked/NovaAI_Android/
+          sed -i 's/versionCode 1/versionCode 2/' unpacked/NovaAI_Android/app/build.gradle
+          sed -i 's/versionName "0.1.2"/versionName "0.2.0"/' unpacked/NovaAI_Android/app/build.gradle
+      - name: Build APK
+        run: |
+          cd unpacked/NovaAI_Android
           gradle --no-daemon assembleDebug
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: NovaAI-debug-apk
-          path: unpacked/**/build/outputs/apk/debug/*.apk
+          path: unpacked/NovaAI_Android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 7
-
-
-
