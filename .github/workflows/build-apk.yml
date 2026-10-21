@@ -7,6 +7,7 @@ on:
       - "NovaAI_Android_Project_0_1_2.zip"
       - "nova-patch/**"
       - "model-runtime/**"
+      - "nova-patch/NovaAI_Android/app/src/main/java/**"
       - ".github/workflows/build-apk.yml"
 
 permissions:
@@ -34,11 +35,42 @@ jobs:
           mkdir -p unpacked
           unzip -q NovaAI_Android_Project_0_1_2.zip -d unpacked
           cp -R nova-patch/NovaAI_Android/. unpacked/NovaAI_Android/
-          sed -i 's/versionCode 1/versionCode 3/' unpacked/NovaAI_Android/app/build.gradle
-          sed -i 's/versionCode 2/versionCode 3/' unpacked/NovaAI_Android/app/build.gradle
-          sed -i 's/versionName "0.1.2"/versionName "0.3.0"/' unpacked/NovaAI_Android/app/build.gradle
-          sed -i 's/versionName "0.2.0"/versionName "0.3.0"/' unpacked/NovaAI_Android/app/build.gradle
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          app = Path("unpacked/NovaAI_Android/app/build.gradle")
+          text = app.read_text()
+          if "org.jetbrains.kotlin.android" not in text:
+              match = re.search(r"plugins\\s*\\{", text)
+              if match:
+                  pos = match.end()
+                  text = text[:pos] + "\\n    id 'org.jetbrains.kotlin.android' version '2.1.20'" + text[pos:]
+              else:
+                  text = """buildscript {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+              dependencies { classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.20' }
+          }
+          apply plugin: 'org.jetbrains.kotlin.android'
+          """ + text
+          if "dev.ffmpegkit-maintained:llama-android:0.1.1" not in text:
+              match = re.search(r"dependencies\\s*\\{", text)
+              if not match:
+                  raise SystemExit("App dependencies block not found")
+              pos = match.end()
+              text = text[:pos] + "\\n    implementation 'dev.ffmpegkit-maintained:llama-android:0.1.1'" + text[pos:]
+          if "kotlinOptions" not in text:
+              match = re.search(r"android\\s*\\{", text)
+              if match:
+                  pos = match.end()
+                  text = text[:pos] + "\\n    kotlinOptions { jvmTarget = '11' }" + text[pos:]
+          app.write_text(text)
+          PY
+          sed -i 's/versionCode 1/versionCode 4/' unpacked/NovaAI_Android/app/build.gradle
+          sed -i 's/versionCode 2/versionCode 4/' unpacked/NovaAI_Android/app/build.gradle
+          sed -i 's/versionName "0.1.2"/versionName "0.4.0"/' unpacked/NovaAI_Android/app/build.gradle
+          sed -i 's/versionName "0.2.0"/versionName "0.4.0"/' unpacked/NovaAI_Android/app/build.gradle
           node --check unpacked/NovaAI_Android/app/src/main/assets/www/app.js
+          grep -q 'dev.ffmpegkit-maintained:llama-android:0.1.1' unpacked/NovaAI_Android/app/build.gradle
       - name: Build APK
         run: |
           cd unpacked/NovaAI_Android
