@@ -1,0 +1,33 @@
+name: Telegram build notifications
+
+on:
+  workflow_run:
+    workflows: ["Build Nova AI APK"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram notification
+        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BUILD_STATUS: ${{ github.event.workflow_run.conclusion }}
+          BUILD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          BUILD_URL: ${{ github.event.workflow_run.html_url }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$BUILD_STATUS" = "success" ]; then ICON="✅"; else ICON="❌"; fi
+          MESSAGE="$ICON Nova AI APK build: $BUILD_STATUS%0ABranch: $BUILD_BRANCH%0ACommit: ${COMMIT_SHA:0:7}%0A$BUILD_URL"
+          curl --fail --silent --show-error --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}"
+      - name: Explain missing Telegram secrets
+        if: ${{ secrets.TELEGRAM_BOT_TOKEN == '' || secrets.TELEGRAM_CHAT_ID == '' }}
+        run: echo "Telegram notification skipped; configure TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in repository Actions secrets."
