@@ -408,7 +408,7 @@ function apiCall(provider, messages) {
     const timeout = setTimeout(() => {
       pending.delete(id);
       resolve({ ok: false, provider: provider.name, error: "Превышено время ожидания" });
-    }, 100000);
+    }, 120000);
     pending.set(id, result => {
       clearTimeout(timeout);
       result.provider = provider.name;
@@ -484,7 +484,15 @@ function getProviders() {
       key: settings.apiKey || ""
     }];
   }
-  return list.filter(provider => provider && provider.endpoint && provider.model).slice(0, 3);
+  const seen = new Set();
+  return list.filter(provider => {
+    if (!provider || !provider.endpoint || !provider.model) return false;
+    const identity = String(provider.endpoint).trim().toLowerCase() + "|" +
+      String(provider.model).trim().toLowerCase();
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  }).slice(0, 3);
 }
 
 async function answerWithFreeServices(userText) {
