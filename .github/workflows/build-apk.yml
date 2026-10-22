@@ -26,7 +26,10 @@ jobs:
           java-version: "21"
       - uses: android-actions/setup-android@v4
       - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses >/dev/null
+        shell: bash
+        run: |
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
