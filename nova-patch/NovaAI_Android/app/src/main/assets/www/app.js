@@ -15,7 +15,7 @@ function saveHistory(){ localStorage.setItem("nova.history", JSON.stringify(hist
 function setMode(next){
   mode=next;localStorage.setItem("nova.mode",mode);
   document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));
-  const welcomeText=$("#welcomeText"); if(welcomeText) welcomeText.textContent=mode==="solo"?"Локальная нейросеть Qwen запускается на устройстве. При первом запросе потребуется скачать модель (~1,07 ГБ); затем она работает без интернета.":"Добавь до трёх совместимых API в настройках: Nova опросит их параллельно и покажет сравнение ответов.";
+  const welcomeText=$("#welcomeText"); if(welcomeText) welcomeText.textContent=mode==="solo"?"Локальная нейросеть Qwen3 8B запускается на устройстве. При первом запросе потребуется скачать модель (~5,03 ГБ); затем она работает без интернета.":"Добавь до трёх совместимых API в настройках: Nova опросит их параллельно и покажет сравнение ответов.";
   const composerNote=$("#composerNote"); if(composerNote) composerNote.textContent=mode==="council"?"Параллельный опрос настроенных моделей":"Локальная модель на устройстве";
   const connectionStatus=$("#connectionStatus"); if(connectionStatus) if(mode==="council"){const count=getProviders().length;connectionStatus.textContent="Совет ИИ · "+count+" моделей";}else{try{const st=JSON.parse(window.NovaBridge?.getLocalModelStatus?.()||"{}");connectionStatus.textContent=st.ready?"Локальная модель · готова":"Локальная модель · загрузится при первом запросе";}catch(_){connectionStatus.textContent="Локальная модель";}}
 }
@@ -76,7 +76,7 @@ async function answerWithFreeServices(userText){
   const messages=makeMessages(userText), providers=getProviders();
   if(mode==="solo"){
     const local=await localCall(messages);
-    if(local?.ok&&local.answer?.trim()) return {answer:local.answer,source:local.provider||"Локальная Qwen 1.5B",local:true};
+    if(local?.ok&&local.answer?.trim()) return {answer:local.answer,source:local.provider||"Локальная Qwen3 8B",local:true};
     if(providers.length){
       const fallback=await apiCall(providers[0],messages);
       if(fallback.ok&&fallback.answer?.trim()) return {answer:fallback.answer,source:fallback.provider,meta:"Локальная модель недоступна; ответ получен от настроенного облачного API."};
