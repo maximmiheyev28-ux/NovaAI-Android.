@@ -1,43 +1,140 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#10121a"><meta name="description" content="Nova AI — персональный ИИ-ассистент">
-<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="style.css">
-<title>Nova AI</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#212121">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Nova — персональный ИИ-помощник">
+<link rel="stylesheet" href="style.css">
+<title>Nova</title>
 </head>
 <body>
 <div class="app-shell">
-<header class="topbar"><div class="brand-mark">N</div><div class="brand"><strong>Nova AI</strong><span id="connectionStatus">Требуется подключение модели</span></div><button class="icon-btn" id="settingsOpen" aria-label="Настройки" title="Настройки">⚙</button></header>
-<nav class="mode-switch" aria-label="Режим работы">
-<button class="mode active" data-mode="solo"><span class="mode-icon">◈</span><span><b>Nova</b><small>Самостоятельно</small></span></button>
-<button class="mode" data-mode="council"><span class="mode-icon">◎</span><span><b>Совет ИИ</b><small>Сравнение ответов</small></span></button>
-</nav>
-<main id="chat" class="chat"><section class="welcome" id="welcome"><div class="orb"><span>✦</span></div><h1>Чем займёмся?</h1><p id="welcomeText">Подключи языковую модель в настройках, чтобы начать.</p><div class="suggestions"><button class="suggestion">Объясни, как работает нейросеть</button><button class="suggestion">Помоги составить план проекта</button><button class="suggestion">Придумай идею приложения</button></div></section></main>
-<form id="composer" class="composer"><textarea id="prompt" rows="1" placeholder="Напиши сообщение…" aria-label="Сообщение"></textarea><button class="send" id="sendBtn" type="submit" aria-label="Отправить">↑</button><div class="composer-note" id="composerNote">Для ответов ИИ укажи API и модель в настройках</div></form>
-<footer class="bottom"><span class="dot"></span><span id="footerText">История сохраняется на устройстве</span><button id="clearChat">Очистить чат</button></footer>
+  <aside class="sidebar" id="sidebar" aria-label="История чатов">
+    <div class="sidebar-top">
+      <a class="brand" href="#" id="brandHome" aria-label="Nova, главный экран">
+        <span class="brand-icon" aria-hidden="true"><span>N</span></span>
+        <span class="brand-copy"><strong>Nova</strong><small>PERSONAL AI</small></span>
+      </a>
+      <button class="icon-button quiet" id="sidebarClose" type="button" aria-label="Закрыть меню" title="Закрыть меню">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <button class="new-chat-button" id="newChat" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      <span>Новый чат</span>
+      <kbd>＋</kbd>
+    </button>
+    <div class="side-section-title">Недавние</div>
+    <nav id="historyList" class="history-list" aria-label="Предыдущие чаты"></nav>
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-bottom">
+      <button class="side-action" id="settingsOpen" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 2.94-.08-.03a1.72 1.72 0 0 0-1.82.25l-.07.05h-3.4l-.02-.09a1.72 1.72 0 0 0-1.21-1.42l-.09-.03-1.7-2.94.06-.07a1.72 1.72 0 0 0 .15-1.83l-.04-.08v-3.4l.09-.03a1.72 1.72 0 0 0 1.2-1.21l.04-.09 2.94-1.7.07.06a1.72 1.72 0 0 0 1.83.15l.08-.04h3.4l.03.09a1.72 1.72 0 0 0 1.21 1.2l.09.04 1.7 2.94-.06.07a1.72 1.72 0 0 0-.15 1.83l.04.08z" transform="translate(-3 -3) scale(1.18)"/></svg>
+        <span>Настройки</span>
+      </button>
+      <div class="profile-card">
+        <div class="profile-avatar">N</div>
+        <div class="profile-info"><strong>Nova AI</strong><small>Работает на устройстве</small></div>
+        <span class="profile-status" aria-label="Локальный режим"></span>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-button menu-toggle" id="sidebarToggle" type="button" aria-label="Открыть меню" title="История чатов">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="topbar-brand"><span class="mobile-brand-icon">N</span><span class="topbar-title">Nova</span><span class="version-pill">3.5</span></div>
+        <span class="topbar-divider"></span>
+        <div class="model-status-wrap">
+          <span class="status-dot"></span>
+          <span id="connectionStatus">Qwen3.5 9B · локально</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="top-action" id="clearChat" type="button" title="Очистить текущий чат">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>
+          <span>Очистить</span>
+        </button>
+      </div>
+    </header>
+
+    <nav class="mode-switch" aria-label="Режим работы">
+      <button class="mode active" data-mode="solo" type="button"><span class="mode-icon">✦</span><span>Nova</span></button>
+      <button class="mode" data-mode="council" type="button"><span class="mode-icon">◎</span><span>Совет ИИ</span></button>
+    </nav>
+
+    <main id="chat" class="chat-scroll">
+      <section class="welcome" id="welcome">
+        <div class="welcome-symbol"><span class="welcome-glow"></span><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4l4.6 14.3L43 23l-14.4 4.7L24 42l-4.7-14.3L5 23l14.3-4.7L24 4z" fill="currentColor"/><path d="M38 5l1.5 4.5L44 11l-4.5 1.5L38 17l-1.5-4.5L32 11l4.5-1.5L38 5z" fill="currentColor" opacity=".65"/></svg></div>
+        <p class="eyebrow">ТВОЙ ИИ-ПОМОЩНИК</p>
+        <h1>Чем займёмся?</h1>
+        <p class="welcome-copy" id="welcomeText">Спроси о чём угодно, попроси разобраться в сложной теме или вместе создай что-то новое.</p>
+        <div class="suggestion-grid">
+          <button class="suggestion" type="button" data-prompt="Объясни сложную тему простыми словами и приведи пример."><span class="suggestion-icon purple">✧</span><span><b>Разобраться в теме</b><small>Понятное объяснение с примерами</small></span><svg class="suggestion-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <button class="suggestion" type="button" data-prompt="Помоги придумать идею полезного приложения и составь план его разработки."><span class="suggestion-icon amber">⌘</span><span><b>Создать проект</b><small>От идеи до рабочего плана</small></span><svg class="suggestion-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <button class="suggestion" type="button" data-prompt="Помоги решить непростую задачу по шагам и проверь ответ."><span class="suggestion-icon green">∑</span><span><b>Решить задачу</b><small>Логика, вычисления и проверка</small></span><svg class="suggestion-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <button class="suggestion" type="button" data-prompt="Предложи несколько нестандартных идей для творчества и объясни, чем они интересны."><span class="suggestion-icon blue">✳</span><span><b>Найти вдохновение</b><small>Идеи, варианты и свежий взгляд</small></span><svg class="suggestion-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+        <div class="privacy-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg><span>Локальный режим: сообщения обрабатываются на телефоне после загрузки модели.</span></div>
+      </section>
+    </main>
+
+    <section class="composer-area" aria-label="Ввод сообщения">
+      <form id="composer" class="composer">
+        <div class="composer-shell">
+          <textarea id="prompt" rows="1" placeholder="Напишите сообщение Nova…" aria-label="Сообщение"></textarea>
+          <div class="composer-toolbar">
+            <div class="composer-tools"><span class="composer-hint" id="composerNote">Qwen3.5 9B · локальная обработка</span></div>
+            <button class="send-button" id="sendBtn" type="submit" aria-label="Отправить сообщение" title="Отправить">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </div>
+        </div>
+        <p class="disclaimer">Nova может ошибаться. Проверяйте важную информацию.</p>
+      </form>
+    </section>
+  </div>
 </div>
-<dialog id="settingsDialog"><div class="dialog-head"><div><h2>Настройки Nova</h2><p>Подключи до трёх совместимых API; «Совет ИИ» запрашивает модели параллельно</p></div><button class="icon-btn" id="settingsClose" aria-label="Закрыть">×</button></div>
-<form id="settingsForm">
-<label class="field">Быстрый выбор провайдера<select id="providerPreset"><option value="">Выбрать…</option><option value="openrouter">OpenRouter (есть бесплатные модели)</option><option value="groq">Groq (доступность зависит от аккаунта)</option><option value="custom">Другой совместимый API</option></select></label>
-<label class="field">Название модели / провайдера<input id="providerName" placeholder="Например, OpenRouter"></label>
-<label class="field">Совместимый API endpoint<input id="endpoint" type="url" placeholder="https://…/v1/chat/completions" autocomplete="url"></label>
-<label class="field">API-ключ (если требуется)<input id="apiKey" type="password" placeholder="Вставь ключ провайдера" autocomplete="off"></label>
-<label class="field">Идентификатор модели<input id="modelName" placeholder="Название модели у провайдера"></label>
-<div class="provider-divider"><b>Вторая модель — для режима «Совет ИИ»</b><small>Укажи endpoint и модель; ключ оставь пустым, если провайдер его не требует.</small></div>
-<label class="field">Название второй модели<input id="providerName2" placeholder="Модель 2"></label>
-<label class="field">Endpoint второй модели<input id="endpoint2" type="url" placeholder="https://…/v1/chat/completions"></label>
-<label class="field">API-ключ второй модели<input id="apiKey2" type="password" placeholder="Необязательно" autocomplete="off"></label>
-<label class="field">Идентификатор второй модели<input id="modelName2" placeholder="Название модели"></label>
-<div class="provider-divider"><b>Третья модель — необязательно</b></div>
-<label class="field">Название третьей модели<input id="providerName3" placeholder="Модель 3"></label>
-<label class="field">Endpoint третьей модели<input id="endpoint3" type="url" placeholder="https://…/v1/chat/completions"></label>
-<label class="field">API-ключ третьей модели<input id="apiKey3" type="password" placeholder="Необязательно" autocomplete="off"></label>
-<label class="field">Идентификатор третьей модели<input id="modelName3" placeholder="Название модели"></label>
-<div class="warning"><b>Приватность:</b> в режиме «Совет ИИ» и при резервном облачном запросе текст передаётся внешним AI-сервисам. Их правила хранения и использования данных могут отличаться; не отправляй пароли, адреса, документы и другие секреты. В режиме «Nova» запрос обрабатывается локально после загрузки модели (~429 МБ). Бесплатные облачные сервисы могут ограничивать доступ или менять условия; для них могут потребоваться ключи.</div><div class="warning"><b>Ключи:</b> если используешь свой API, ключ хранится в локальных данных приложения, а не в защищённом хранилище Android.</div>
-<div class="settings-actions"><button type="button" class="secondary" id="forgetKey">Удалить ключ</button><button type="submit" class="primary">Сохранить</button></div>
-</form>
-<div class="local-data"><b>Локальные данные</b><p>История и настройки сохраняются на устройстве. Очистка данных приложения удалит их.</p><button type="button" class="secondary" id="wipeAll">Удалить все данные</button></div>
+
+<dialog id="settingsDialog" class="settings-dialog">
+  <div class="dialog-head">
+    <div class="dialog-title"><span class="dialog-symbol">✦</span><div><h2>Настройки</h2><p>Модель, дополнительные сервисы и данные</p></div></div>
+    <button class="icon-button" id="settingsClose" type="button" aria-label="Закрыть настройки">×</button>
+  </div>
+  <div class="model-card">
+    <div class="model-card-icon">N</div><div class="model-card-copy"><strong>Qwen3.5 9B Instruct</strong><span>Квантование Q4_K_S · примерно 5,8 ГБ</span><small>После загрузки может отвечать без интернета</small></div><span class="model-badge">LOCAL</span>
+  </div>
+  <div class="settings-scroll">
+    <form id="settingsForm">
+      <div class="settings-section"><h3>Резервные облачные модели</h3><p>Необязательно. Используются только после явного подключения API или в режиме «Совет ИИ».</p></div>
+      <label class="field">Быстрый выбор провайдера<select id="providerPreset"><option value="">Выбрать…</option><option value="openrouter">OpenRouter — доступность зависит от модели и аккаунта</option><option value="groq">Groq — требуется доступный API</option><option value="custom">Другой совместимый API</option></select></label>
+      <label class="field">Название первой модели<input id="providerName" placeholder="Например, Облачная модель" autocomplete="off"></label>
+      <label class="field">API endpoint<input id="endpoint" type="url" placeholder="https://…/v1/chat/completions" autocomplete="url"></label>
+      <label class="field">API-ключ<input id="apiKey" type="password" placeholder="Ключ провайдера" autocomplete="off"></label>
+      <label class="field">Идентификатор модели<input id="modelName" placeholder="Название модели у провайдера" autocomplete="off"></label>
+      <div class="provider-divider"><b>Вторая модель</b><span>Для сравнения ответов в режиме «Совет ИИ»</span></div>
+      <label class="field">Название<input id="providerName2" placeholder="Модель 2" autocomplete="off"></label>
+      <label class="field">API endpoint<input id="endpoint2" type="url" placeholder="https://…/v1/chat/completions" autocomplete="url"></label>
+      <label class="field">API-ключ<input id="apiKey2" type="password" placeholder="Необязательно" autocomplete="off"></label>
+      <label class="field">Идентификатор модели<input id="modelName2" placeholder="Название модели" autocomplete="off"></label>
+      <div class="provider-divider"><b>Третья модель <span class="muted">(необязательно)</span></b></div>
+      <label class="field">Название<input id="providerName3" placeholder="Модель 3" autocomplete="off"></label>
+      <label class="field">API endpoint<input id="endpoint3" type="url" placeholder="https://…/v1/chat/completions" autocomplete="url"></label>
+      <label class="field">API-ключ<input id="apiKey3" type="password" placeholder="Необязательно" autocomplete="off"></label>
+      <label class="field">Идентификатор модели<input id="modelName3" placeholder="Название модели" autocomplete="off"></label>
+      <div class="notice privacy-warning"><b>Приватность</b><span>При облачном запросе сообщения передаются выбранному сервису. Его правила хранения данных могут отличаться от правил Nova. Не отправляйте пароли или другие секреты.</span></div>
+      <div class="notice"><b>Хранение ключей</b><span>Ключи сохраняются в локальных данных WebView, а не в защищённом Android Keystore. Подключайте только проверенных провайдеров.</span></div>
+      <div class="settings-actions"><button type="button" class="secondary-button" id="forgetKey">Удалить ключи</button><button type="submit" class="primary-button">Сохранить настройки</button></div>
+    </form>
+    <div class="settings-section data-section"><h3>Локальные данные</h3><p>История и настройки хранятся на устройстве.</p><button type="button" class="secondary-button danger-button" id="wipeAll">Удалить историю и настройки</button></div>
+  </div>
 </dialog>
 <script src="app.js"></script>
-</body></html>
+</body>
+</html>
