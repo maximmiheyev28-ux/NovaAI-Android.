@@ -83,6 +83,7 @@ jobs:
           PY
           sed -i 's/versionCode 1/versionCode 4/' unpacked/NovaAI_Android/app/build.gradle
           sed -i 's/versionCode 2/versionCode 4/' unpacked/NovaAI_Android/app/build.gradle
+          sed -i 's/minSdk 23/minSdk 24/' unpacked/NovaAI_Android/app/build.gradle
           sed -i 's/versionName "0.1.2"/versionName "0.4.0"/' unpacked/NovaAI_Android/app/build.gradle
           sed -i 's/versionName "0.2.0"/versionName "0.4.0"/' unpacked/NovaAI_Android/app/build.gradle
           node --check unpacked/NovaAI_Android/app/src/main/assets/www/app.js
