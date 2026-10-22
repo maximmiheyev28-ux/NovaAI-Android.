@@ -29,6 +29,8 @@ object LocalLlm {
         "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/3885219b6810b007914f3a7950a8d1b469d598a5/Qwen3.5-9B-Q4_K_S.gguf"
     private const val MODEL_FILE = "Qwen3.5-9B-Q4_K_S.gguf"
     private const val MIN_MODEL_BYTES = 5_000_000_000L
+    private const val ESTIMATED_MODEL_BYTES = 5_800_000_000L
+    private const val DISK_SAFETY_BYTES = 700_000_000L
     private const val EXPECTED_SHA256 =
         "023713a5240bf58a84d2890a30deb2e0485abb5b9b9c33ba67596e9248b35f80"
     private const val MIN_FREE_MEMORY_BYTES = 6_500_000_000L
@@ -43,6 +45,9 @@ object LocalLlm {
             try {
                 val modelFile = modelFile(context)
                 if (!modelFile.exists() || modelFile.length() < MIN_MODEL_BYTES) {
+                    if (modelFile.exists()) modelFile.delete()
+                    val removedOldModel = ensureDownloadSpace(modelFile)
+                    if (removedOldModel) callback.onProgress("Освобождаю место от старой модели…")
                     callback.onProgress("Скачиваю Qwen3.5 9B — примерно 5,8 ГБ. Загрузка нужна только один раз.")
                     downloadModel(modelFile) { percent ->
                         callback.onProgress("Загрузка Qwen3.5 9B: $percent%")
@@ -136,6 +141,41 @@ object LocalLlm {
             throw IllegalStateException("Не удалось создать папку модели")
         }
         return File(root, MODEL_FILE)
+    }
+
+    /** Frees space left by the previous multi-gigabyte model only when the download needs it. */
+    private fun ensureDownloadSpace(target: File): Boolean {
+        val root = target.parentFile ?: throw IllegalStateException("Не найдена папка модели")
+        val part = File(root, target.name + ".part")
+        val alreadyDownloaded = if (part.exists()) part.length() else 0L
+        val remaining = (ESTIMATED_MODEL_BYTES - alreadyDownloaded).coerceAtLeast(0L)
+        val requiredFree = remaining + DISK_SAFETY_BYTES
+        var free = root.usableSpace
+        var removedOldModel = false
+
+        if (free < requiredFree) {
+            root.listFiles()?.filter { file ->
+                file.isFile && file.name != target.name && file.name != part.name &&
+                    file.name.startsWith("Qwen") && file.extension.equals("gguf", ignoreCase = true)
+            }?.forEach { file ->
+                if (file.delete()) removedOldModel = true
+            }
+            free = root.usableSpace
+        }
+        if (free < requiredFree) {
+            val missingGb = formatGb(requiredFree - free)
+            throw IllegalStateException(
+                "Недостаточно места для модели. Освободи ещё примерно $missingGb ГБ памяти устройства и повтори загрузку."
+            )
+        }
+        return removedOldModel
+    }
+
+    private fun removeObsoleteModels(keep: File) {
+        keep.parentFile?.listFiles()?.filter { file ->
+            file.isFile && file.absolutePath != keep.absolutePath &&
+                file.name.startsWith("Qwen") && file.extension.equals("gguf", ignoreCase = true)
+        }?.forEach { file -> runCatching { file.delete() } }
     }
 
     private fun availableMemoryBytes(context: Context): Long {
@@ -270,6 +310,7 @@ object LocalLlm {
                     if (!part.renameTo(target)) {
                         throw IllegalStateException("Не удалось сохранить модель")
                     }
+                    removeObsoleteModels(target)
                     return@withContext
                 } catch (e: Throwable) {
                     if (attempt >= 3 || e.message?.contains("SHA-256", true) == true) throw e
