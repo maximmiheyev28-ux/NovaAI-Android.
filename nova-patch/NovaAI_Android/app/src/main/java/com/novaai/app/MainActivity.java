@@ -201,12 +201,21 @@ public class MainActivity extends Activity {
         else super.onBackPressed();
     }
 
+    @Override public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        // Android may need memory back for the foreground app or other processes.
+        if (level >= TRIM_MEMORY_RUNNING_LOW) {
+            LocalLlm.INSTANCE.unload();
+        }
+    }
+
     @Override protected void onDestroy() {
         if (webView != null) {
             webView.loadUrl("about:blank");
             webView.destroy();
             webView = null;
         }
+        LocalLlm.INSTANCE.unload();
         network.shutdownNow();
         super.onDestroy();
     }
