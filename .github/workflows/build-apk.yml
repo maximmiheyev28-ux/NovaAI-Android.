@@ -75,6 +75,12 @@ jobs:
                   lines.insert(dependency_block[-1] + 1, "    implementation 'dev.ffmpegkit-maintained:llama-android:0.1.1'")
               else:
                   lines.extend(["", "dependencies {", "    implementation 'dev.ffmpegkit-maintained:llama-android:0.1.1'", "}"])
+          if not any("kotlinx-coroutines-android" in line for line in lines):
+              dependency_block = [i for i, line in enumerate(lines) if line.strip().startswith("dependencies") and "{" in line]
+              if dependency_block:
+                  lines.insert(dependency_block[-1] + 1, "    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1'")
+              else:
+                  lines.extend(["", "dependencies {", "    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1'", "}"])
           # Normalize JVM targets rather than assuming the original file's formatting.
           text = "\n".join(lines)
           text = re.sub(r"(?m)^\s*compileOptions\s*\{[^}]*\}\s*\n?", "", text)
