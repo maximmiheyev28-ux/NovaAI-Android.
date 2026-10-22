@@ -39,7 +39,10 @@ jobs:
           from pathlib import Path
           import re
           app = Path("unpacked/NovaAI_Android/app/build.gradle")
-          lines = app.read_text().splitlines()
+          original = app.read_text()
+          print("--- ORIGINAL app/build.gradle ---")
+          print(original)
+          lines = original.splitlines()
           if not any("org.jetbrains.kotlin.android" in line for line in lines):
               plugin_index = next((i for i, line in enumerate(lines) if re.match(r"^\s*plugins\s*\{", line)), None)
               if plugin_index is not None:
@@ -67,13 +70,13 @@ jobs:
                       else:
                           lines.append("apply plugin: 'org.jetbrains.kotlin.android'")
           if not any("dev.ffmpegkit-maintained:llama-android:0.1.1" in line for line in lines):
-              dependency_block = [i for i, line in enumerate(lines) if line.strip() == "dependencies {"]
+              dependency_block = [i for i, line in enumerate(lines) if line.strip().startswith("dependencies") and "{" in line]
               if dependency_block:
                   lines.insert(dependency_block[-1] + 1, "    implementation 'dev.ffmpegkit-maintained:llama-android:0.1.1'")
               else:
                   lines.extend(["", "dependencies {", "    implementation 'dev.ffmpegkit-maintained:llama-android:0.1.1'", "}"])
           if not any("kotlinOptions" in line for line in lines):
-              android_block = next((i for i, line in enumerate(lines) if line.strip() == "android {"), None)
+              android_block = next((i for i, line in enumerate(lines) if line.strip().startswith("android") and "{" in line), None)
               if android_block is not None:
                   lines.insert(android_block + 1, "    kotlinOptions { jvmTarget = '11' }")
           app.write_text("\n".join(lines) + "\n")
