@@ -53,7 +53,7 @@
         <span class="topbar-divider"></span>
         <div class="model-status-wrap">
           <span class="status-dot"></span>
-          <span id="connectionStatus">Qwen3.5 9B · локально</span>
+          <span id="connectionStatus">Qwen2.5 3B · локально</span>
         </div>
       </div>
       <div class="topbar-actions">
@@ -90,7 +90,7 @@
         <div class="composer-shell">
           <textarea id="prompt" rows="1" placeholder="Напишите сообщение Nova…" aria-label="Сообщение"></textarea>
           <div class="composer-toolbar">
-            <div class="composer-tools"><span class="composer-hint" id="composerNote">Qwen3.5 9B · локальная обработка</span></div>
+            <div class="composer-tools"><span class="composer-hint" id="composerNote">Qwen2.5 3B · локальная обработка</span></div>
             <button class="send-button" id="sendBtn" type="submit" aria-label="Отправить сообщение" title="Отправить">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
             </button>
@@ -108,17 +108,17 @@
     <button class="icon-button" id="settingsClose" type="button" aria-label="Закрыть настройки">×</button>
   </div>
   <div class="model-card">
-    <div class="model-card-icon">N</div><div class="model-card-copy"><strong>Qwen3.5 9B Instruct</strong><span>Квантование Q4_K_S · примерно 5,8 ГБ</span><small>После загрузки может отвечать без интернета</small></div><span class="model-badge">LOCAL</span>
+    <div class="model-card-icon">N</div><div class="model-card-copy"><strong>Qwen2.5 3B Instruct</strong><span>Квантование Q4_K_M · примерно 1,93 ГБ</span><small>Локальная модель · после загрузки может работать офлайн</small></div><span class="model-badge">LOCAL</span>
   </div>
   <div class="settings-scroll">
     <form id="settingsForm">
-      <div class="settings-section"><h3>Резервные облачные модели</h3><p>Необязательно. Используются только после явного подключения API или в режиме «Совет ИИ».</p></div>
-      <label class="field">Быстрый выбор провайдера<select id="providerPreset"><option value="">Выбрать…</option><option value="openrouter">OpenRouter — доступность зависит от модели и аккаунта</option><option value="groq">Groq — требуется доступный API</option><option value="custom">Другой совместимый API</option></select></label>
+      <div class="settings-section"><h3>Облачные модели и Совет ИИ</h3><p>Совет запускает настроенные API параллельно. Если локальная Nova уже скачана, она тоже участвует; достаточно одного облачного API + локальной модели. Для двух облачных моделей локальная загрузка не обязательна.</p></div>
+      <label class="field">Быстрый выбор провайдера<select id="providerPreset"><option value="">Выбрать…</option><option value="openrouter">OpenRouter — бесплатные модели, нужен API-ключ</option><option value="groq">Groq — нужен API-ключ; проверь тариф и лимиты</option><option value="custom">Другой совместимый API</option></select></label>
       <label class="field">Название первой модели<input id="providerName" placeholder="Например, Облачная модель" autocomplete="off"></label>
       <label class="field">API endpoint<input id="endpoint" type="url" placeholder="https://…/v1/chat/completions" autocomplete="url"></label>
-      <label class="field">API-ключ<input id="apiKey" type="password" placeholder="Ключ провайдера" autocomplete="off"></label>
+      <label class="field">API-ключ (для OpenRouter/Groq обязателен)<input id="apiKey" type="password" placeholder="Вставь API-ключ" autocomplete="off"></label>
       <label class="field">Идентификатор модели<input id="modelName" placeholder="Название модели у провайдера" autocomplete="off"></label>
-      <div class="provider-divider"><b>Вторая модель</b><span>Для сравнения ответов в режиме «Совет ИИ»</span></div>
+      <div class="provider-divider"><b>Вторая облачная модель</b><span>Дополнительный участник Совета ИИ</span></div>
       <label class="field">Название<input id="providerName2" placeholder="Модель 2" autocomplete="off"></label>
       <label class="field">API endpoint<input id="endpoint2" type="url" placeholder="https://…/v1/chat/completions" autocomplete="url"></label>
       <label class="field">API-ключ<input id="apiKey2" type="password" placeholder="Необязательно" autocomplete="off"></label>
