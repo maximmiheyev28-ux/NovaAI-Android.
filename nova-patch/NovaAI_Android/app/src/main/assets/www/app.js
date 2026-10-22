@@ -54,6 +54,8 @@ function ensureSessions() {
     });
   }
   if (!sessions.some(s => s.id === currentSessionId)) currentSessionId = sessions[0].id;
+  const selected = sessions.find(s => s.id === currentSessionId);
+  if (selected) selected.updatedAt = Math.max(selected.updatedAt, Date.now());
   sessions.sort((a, b) => b.updatedAt - a.updatedAt);
   activeSession().messages = activeSession().messages || [];
   history = activeSession().messages.slice();
