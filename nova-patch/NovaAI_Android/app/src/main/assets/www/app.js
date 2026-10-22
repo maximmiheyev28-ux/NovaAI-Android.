@@ -735,7 +735,7 @@ $("#providerPreset").addEventListener("change", event => {
   } else if (event.target.value === "groq") {
     $("#providerName").value = "Groq";
     $("#endpoint").value = "https://api.groq.com/openai/v1/chat/completions";
-    $("#modelName").value = "llama-3.3-70b-versatile";
+    $("#modelName").value = "openai/gpt-oss-120b";
   } else if (event.target.value === "custom") {
     $("#providerName").value = "Совместимый API";
   }
