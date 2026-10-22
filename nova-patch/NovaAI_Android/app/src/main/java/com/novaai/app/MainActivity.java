@@ -101,7 +101,7 @@ public class MainActivity extends Activity {
                     JSONObject body = new JSONObject();
                     body.put("model", model);
                     body.put("messages", req.getJSONArray("messages"));
-                    body.put("temperature", 0.7);
+                    // Avoid forcing temperature on providers/models that reject this parameter.
                     body.put("max_tokens", 1200);
                     try (OutputStream out = connection.getOutputStream()) {
                         out.write(body.toString().getBytes(StandardCharsets.UTF_8));
