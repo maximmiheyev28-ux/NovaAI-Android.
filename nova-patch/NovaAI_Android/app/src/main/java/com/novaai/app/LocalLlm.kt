@@ -31,7 +31,7 @@ object LocalLlm {
     private const val MIN_MODEL_BYTES = 5_000_000_000L
     private const val EXPECTED_SHA256 =
         "023713a5240bf58a84d2890a30deb2e0485abb5b9b9c33ba67596e9248b35f80"
-    private const val MIN_FREE_MEMORY_BYTES = 6_000_000_000L
+    private const val MIN_FREE_MEMORY_BYTES = 6_500_000_000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val modelMutex = Mutex()
