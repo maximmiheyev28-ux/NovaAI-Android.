@@ -50,7 +50,7 @@ object LocalLlm {
                     if (modelFile.exists()) modelFile.delete()
                     val removedOldModel = ensureDownloadSpace(modelFile)
                     if (removedOldModel) callback.onProgress("Освобождаю место от старой модели…")
-                    callback.onProgress("Скачиваю Qwen2.5 3B — примерно 5,8 ГБ. Загрузка нужна только один раз.")
+                    callback.onProgress("Скачиваю Qwen2.5 3B — примерно 1,93 ГБ. Загрузка нужна только один раз.")
                     downloadModel(modelFile) { percent ->
                         callback.onProgress("Загрузка Qwen2.5 3B: $percent%")
                     }
@@ -66,7 +66,7 @@ object LocalLlm {
                             throw IllegalStateException(
                                 "Недостаточно свободной оперативной памяти. Сейчас доступно " +
                                     formatGb(freeBytes) +
-                                    " ГБ, а для устойчивого запуска этой модели желательно около 6–7 ГБ. " +
+                                    " ГБ. Для этой модели нужно хотя бы около 2,5 ГБ доступной системной памяти. " +
                                     "Закрой тяжёлые приложения и попробуй снова."
                             )
                         }
@@ -181,7 +181,9 @@ object LocalLlm {
         if (free < requiredFree) {
             root.listFiles()?.filter { file ->
                 file.isFile && file.name != target.name && file.name != part.name &&
-                    file.name.startsWith("Qwen") && file.extension.equals("gguf", ignoreCase = true)
+                    file.name.startsWith("Qwen") &&
+                    (file.name.endsWith(".gguf", ignoreCase = true) ||
+                        file.name.endsWith(".gguf.part", ignoreCase = true))
             }?.forEach { file ->
                 if (file.delete()) removedOldModel = true
             }
@@ -199,7 +201,9 @@ object LocalLlm {
     private fun removeObsoleteModels(keep: File) {
         keep.parentFile?.listFiles()?.filter { file ->
             file.isFile && file.absolutePath != keep.absolutePath &&
-                file.name.startsWith("Qwen") && file.extension.equals("gguf", ignoreCase = true)
+                file.name != keep.name + ".part" && file.name.startsWith("Qwen") &&
+                (file.name.endsWith(".gguf", ignoreCase = true) ||
+                    file.name.endsWith(".gguf.part", ignoreCase = true))
         }?.forEach { file -> runCatching { file.delete() } }
     }
 
