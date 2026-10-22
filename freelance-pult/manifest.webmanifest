@@ -1,0 +1,11 @@
+{
+  "name": "Фриланс-пульт",
+  "short_name": "Фриланс-пульт",
+  "description": "Локальный учет фриланс-заказов, откликов и выплат",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#111827",
+  "lang": "ru"
+}
