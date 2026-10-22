@@ -25,15 +25,17 @@ import java.security.MessageDigest
  */
 object LocalLlm {
     // Pin a model revision so a remote file change cannot silently break installation.
+    // A 3B Q4 model is a safer default for phones where only ~5 GB RAM is currently available.
+    // The revision and SHA-256 are pinned so a changed upstream file cannot silently be accepted.
     private const val MODEL_URL =
-        "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/3885219b6810b007914f3a7950a8d1b469d598a5/Qwen3.5-9B-Q4_K_S.gguf"
-    private const val MODEL_FILE = "Qwen3.5-9B-Q4_K_S.gguf"
-    private const val MIN_MODEL_BYTES = 5_000_000_000L
-    private const val ESTIMATED_MODEL_BYTES = 5_800_000_000L
-    private const val DISK_SAFETY_BYTES = 700_000_000L
+        "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/cce4abc6ec341d7091b89d3d851b9445b954ff81/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+    private const val MODEL_FILE = "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+    private const val MIN_MODEL_BYTES = 1_800_000_000L
+    private const val ESTIMATED_MODEL_BYTES = 1_930_000_000L
+    private const val DISK_SAFETY_BYTES = 400_000_000L
     private const val EXPECTED_SHA256 =
-        "023713a5240bf58a84d2890a30deb2e0485abb5b9b9c33ba67596e9248b35f80"
-    private const val MIN_FREE_MEMORY_BYTES = 6_500_000_000L
+        "9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94"
+    private const val MIN_FREE_MEMORY_BYTES = 2_500_000_000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val modelMutex = Mutex()
@@ -48,9 +50,9 @@ object LocalLlm {
                     if (modelFile.exists()) modelFile.delete()
                     val removedOldModel = ensureDownloadSpace(modelFile)
                     if (removedOldModel) callback.onProgress("Освобождаю место от старой модели…")
-                    callback.onProgress("Скачиваю Qwen3.5 9B — примерно 5,8 ГБ. Загрузка нужна только один раз.")
+                    callback.onProgress("Скачиваю Qwen2.5 3B — примерно 5,8 ГБ. Загрузка нужна только один раз.")
                     downloadModel(modelFile) { percent ->
-                        callback.onProgress("Загрузка Qwen3.5 9B: $percent%")
+                        callback.onProgress("Загрузка Qwen2.5 3B: $percent%")
                     }
                 }
 
@@ -68,18 +70,39 @@ object LocalLlm {
                                     "Закрой тяжёлые приложения и попробуй снова."
                             )
                         }
-                        val contextSize = recommendedContextSize(freeBytes)
-                        callback.onProgress(
-                            "Подготавливаю модель · контекст $contextSize · CPU-режим"
-                        )
-                        Llama.loadModel(
-                            modelFile.absolutePath,
-                            LlamaConfig(contextSize = contextSize, threads = recommendedThreads())
-                        ).also { loadedModel = it }
+                        var loaded: LlamaModel? = null
+                        var lastLoadError: Throwable? = null
+                        for (contextSize in recommendedContextSizes(freeBytes)) {
+                            callback.onProgress(
+                                "Подготавливаю Qwen2.5 3B · контекст $contextSize · CPU-режим"
+                            )
+                            try {
+                                loaded = Llama.loadModel(
+                                    modelFile.absolutePath,
+                                    LlamaConfig(contextSize = contextSize, threads = recommendedThreads())
+                                )
+                                break
+                            } catch (t: Throwable) {
+                                lastLoadError = t
+                                val memoryFailure = t is OutOfMemoryError ||
+                                    t.message?.let { message ->
+                                        message.contains("memory", ignoreCase = true) ||
+                                            message.contains("alloc", ignoreCase = true) ||
+                                            message.contains("памяти", ignoreCase = true)
+                                    } == true
+                                if (!memoryFailure) throw t
+                                System.gc()
+                            }
+                        }
+                        (loaded ?: throw IllegalStateException(
+                            "Не удалось загрузить модель даже с уменьшенным контекстом. " +
+                                (lastLoadError?.message ?: "Освободи оперативную память и повтори попытку."),
+                            lastLoadError
+                        )).also { loadedModel = it }
                     }
                 }
 
-                callback.onProgress("Qwen3.5 9B готова. Формирую ответ на устройстве…")
+                callback.onProgress("Qwen2.5 3B готова. Формирую ответ на устройстве…")
                 val (systemPrompt, prompt) = makePrompt(requestJson)
                 val response = inferenceMutex.withLock {
                     Llama.complete(model, prompt, systemPrompt = systemPrompt, maxTokens = 640)
@@ -93,7 +116,7 @@ object LocalLlm {
                 val result = JSONObject()
                     .put("ok", true)
                     .put("answer", cleanAnswer)
-                    .put("provider", "Qwen3.5 9B · локально")
+                    .put("provider", "Qwen2.5 3B · локально")
                     .put("tokensGenerated", response.tokensGenerated)
                     .put("tokensPerSecond", response.tokensPerSecond)
                 withContext(Dispatchers.Main) { callback.onResult(result.toString()) }
@@ -119,10 +142,12 @@ object LocalLlm {
         val memory = availableMemoryBytes(context)
         return JSONObject()
             .put("ready", file.exists() && file.length() >= MIN_MODEL_BYTES)
-            .put("model", "Qwen3.5 9B Instruct · Q4_K_S")
+            .put("model", "Qwen2.5 3B Instruct · Q4_K_M")
             .put("sizeBytes", if (file.exists()) file.length() else 0L)
-            .put("sizeLabel", "≈5,8 ГБ")
+            .put("sizeLabel", "≈1,93 ГБ")
             .put("availableMemoryBytes", memory)
+            .put("minimumFreeMemoryBytes", MIN_FREE_MEMORY_BYTES)
+            .put("recommendedContext", recommendedContextSizes(memory).first())
             .put("offlineAfterDownload", true)
     }
 
@@ -185,9 +210,13 @@ object LocalLlm {
         return info.availMem
     }
 
-    private fun recommendedContextSize(freeBytes: Long): Int {
-        // Keep more RAM available for Android when other apps are still resident.
-        return if (freeBytes >= 7_000_000_000L) 4096 else 2048
+    private fun recommendedContextSizes(freeBytes: Long): List<Int> {
+        // Start conservatively and retry with a smaller KV cache if allocation fails.
+        return when {
+            freeBytes >= 5_500_000_000L -> listOf(4096, 2048, 1024)
+            freeBytes >= 3_500_000_000L -> listOf(2048, 1024)
+            else -> listOf(1024)
+        }
     }
 
     private fun recommendedThreads(): Int {
