@@ -153,9 +153,12 @@ object LocalLlm {
 
     fun unload() {
         scope.launch {
-            modelMutex.withLock {
-                loadedModel?.let { runCatching { Llama.releaseModel(it) } }
-                loadedModel = null
+            // Wait for any active inference before releasing native model memory.
+            inferenceMutex.withLock {
+                modelMutex.withLock {
+                    loadedModel?.let { runCatching { Llama.releaseModel(it) } }
+                    loadedModel = null
+                }
             }
         }
     }
