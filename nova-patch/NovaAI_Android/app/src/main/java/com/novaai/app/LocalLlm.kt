@@ -24,10 +24,10 @@ import java.security.MessageDigest
  */
 object LocalLlm {
     private const val MODEL_URL =
-        "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_0.gguf"
-    private const val MODEL_FILE = "qwen2.5-0.5b-instruct-q4_0.gguf"
-    private const val MIN_MODEL_BYTES = 400_000_000L
-    private const val EXPECTED_SHA256 = "7671c0c304e6ce5a7fc577bcb12aba01e2c155cc2efd29b2213c95b18edaf6ed"
+        "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/91cad51170dc346986eccefdc2dd33a9da36ead9/qwen2.5-1.5b-instruct-q4_0.gguf"
+    private const val MODEL_FILE = "qwen2.5-1.5b-instruct-q4_0.gguf"
+    private const val MIN_MODEL_BYTES = 1_000_000_000L
+    private const val EXPECTED_SHA256 = "dcd819ff094852c38faba6873d8ff0c9d51eadb2844539e52042ae5d647bbfdb"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val modelMutex = Mutex()
@@ -39,7 +39,7 @@ object LocalLlm {
             try {
                 val modelFile = modelFile(context)
                 if (!modelFile.exists() || modelFile.length() < MIN_MODEL_BYTES) {
-                    callback.onProgress("Скачивание локальной модели Qwen — около 429 МБ. Это делается один раз.")
+                    callback.onProgress("Скачивание локальной модели Qwen — около 1,07 ГБ. Это делается один раз.")
                     downloadModel(modelFile) { percent ->
                         callback.onProgress("Загрузка локальной модели: $percent%")
                     }
@@ -60,7 +60,7 @@ object LocalLlm {
                 val result = JSONObject()
                     .put("ok", true)
                     .put("answer", response.text.trim())
-                    .put("provider", "Локальная Qwen 0.5B")
+                    .put("provider", "Локальная Qwen 1.5B")
                     .put("tokensGenerated", response.tokensGenerated)
                     .put("tokensPerSecond", response.tokensPerSecond)
                 withContext(Dispatchers.Main) { callback.onResult(result.toString()) }
@@ -83,7 +83,7 @@ object LocalLlm {
         val file = modelFile(context)
         return JSONObject()
             .put("ready", file.exists() && file.length() >= MIN_MODEL_BYTES)
-            .put("model", "Qwen2.5 0.5B Instruct · Q4_0")
+            .put("model", "Qwen2.5 1.5B Instruct · Q4_0")
             .put("sizeBytes", if (file.exists()) file.length() else 0L)
             .put("offlineAfterDownload", true)
     }
@@ -111,7 +111,7 @@ object LocalLlm {
     private fun makePrompt(requestJson: String): Pair<String, String> {
         val root = JSONObject(requestJson)
         val messages = root.optJSONArray("messages")
-        var system = "Ты — Nova, локальный ИИ-помощник. Отвечай по-русски, ясно и полезно. Не придумывай факты; обозначай неопределённость."
+        var system = "Ты — Nova, полноценный ИИ-помощник. Выполняй задачу пользователя, а не просто объясняй термины. Для практических просьб давай готовый результат: пошаговый план, конкретные примеры, расчёты или код по необходимости. Для учебных задач показывай ход решения. Уточняй только если без этого нельзя ответить. Не повторяй вопрос и не уходи в общие определения. Если не уверен — честно обозначь неопределённость. Отвечай на языке пользователя."
         if (messages == null || messages.length() == 0) return system to requestJson.take(12000)
 
         val first = messages.optJSONObject(0)
