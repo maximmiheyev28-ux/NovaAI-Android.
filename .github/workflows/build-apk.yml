@@ -25,6 +25,8 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: android-actions/setup-android@v4
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses >/dev/null
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -104,6 +106,10 @@ jobs:
           sed -i 's/versionName "0.2.0"/versionName "0.4.0"/' unpacked/NovaAI_Android/app/build.gradle
           node --check unpacked/NovaAI_Android/app/src/main/assets/www/app.js
           grep -q 'dev.ffmpegkit-maintained:llama-android:0.1.1' unpacked/NovaAI_Android/app/build.gradle
+          grep -q 'Qwen2.5 3B' unpacked/NovaAI_Android/app/src/main/assets/www/app.js
+          grep -q 'EXPECTED_SHA256' unpacked/NovaAI_Android/app/src/main/java/com/novaai/app/LocalLlm.kt
+          grep -q 'localCall(messages)' unpacked/NovaAI_Android/app/src/main/assets/www/app.js
+          ! grep -q 'Qwen3.5 9B' unpacked/NovaAI_Android/app/src/main/assets/www/app.js
           echo '--- patched app/build.gradle ---'
           sed -n '1,120p' unpacked/NovaAI_Android/app/build.gradle
       - name: Build APK
