@@ -24,10 +24,10 @@ import java.security.MessageDigest
  */
 object LocalLlm {
     private const val MODEL_URL =
-        "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/91cad51170dc346986eccefdc2dd33a9da36ead9/qwen2.5-1.5b-instruct-q4_0.gguf"
-    private const val MODEL_FILE = "qwen2.5-1.5b-instruct-q4_0.gguf"
-    private const val MIN_MODEL_BYTES = 1_000_000_000L
-    private const val EXPECTED_SHA256 = "dcd819ff094852c38faba6873d8ff0c9d51eadb2844539e52042ae5d647bbfdb"
+        "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf"
+    private const val MODEL_FILE = "Qwen3-8B-Q4_K_M.gguf"
+    private const val MIN_MODEL_BYTES = 4_800_000_000L
+    private const val EXPECTED_SHA256 = "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val modelMutex = Mutex()
@@ -39,7 +39,7 @@ object LocalLlm {
             try {
                 val modelFile = modelFile(context)
                 if (!modelFile.exists() || modelFile.length() < MIN_MODEL_BYTES) {
-                    callback.onProgress("Скачивание локальной модели Qwen — около 1,07 ГБ. Это делается один раз.")
+                    callback.onProgress("Скачивание локальной модели Qwen — около 5,03 ГБ. Это делается один раз.")
                     downloadModel(modelFile) { percent ->
                         callback.onProgress("Загрузка локальной модели: $percent%")
                     }
@@ -60,7 +60,7 @@ object LocalLlm {
                 val result = JSONObject()
                     .put("ok", true)
                     .put("answer", response.text.trim())
-                    .put("provider", "Локальная Qwen 1.5B")
+                    .put("provider", "Локальная Qwen3 8B")
                     .put("tokensGenerated", response.tokensGenerated)
                     .put("tokensPerSecond", response.tokensPerSecond)
                 withContext(Dispatchers.Main) { callback.onResult(result.toString()) }
@@ -83,7 +83,7 @@ object LocalLlm {
         val file = modelFile(context)
         return JSONObject()
             .put("ready", file.exists() && file.length() >= MIN_MODEL_BYTES)
-            .put("model", "Qwen2.5 1.5B Instruct · Q4_0")
+            .put("model", "Qwen3 8B Instruct · Q4_K_M")
             .put("sizeBytes", if (file.exists()) file.length() else 0L)
             .put("offlineAfterDownload", true)
     }
@@ -145,7 +145,7 @@ object LocalLlm {
                     connectTimeout = 20000
                     readTimeout = 45000
                     instanceFollowRedirects = true
-                    setRequestProperty("User-Agent", "NovaAI-Android/0.4")
+                    setRequestProperty("User-Agent", "NovaAI-Android/0.5")
                     if (existing > 0L) setRequestProperty("Range", "bytes=$existing-")
                 }
                 connection.connect()
