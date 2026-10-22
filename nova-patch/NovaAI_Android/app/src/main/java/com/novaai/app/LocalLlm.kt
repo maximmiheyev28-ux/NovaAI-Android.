@@ -1,5 +1,6 @@
 package com.novaai.app
 
+import android.app.ActivityManager
 import android.content.Context
 import dev.ffmpegkit.llama.Llama
 import dev.ffmpegkit.llama.LlamaConfig
@@ -19,15 +20,18 @@ import java.net.URL
 import java.security.MessageDigest
 
 /**
- * Genuine on-device model runtime. Model weights are downloaded once to app-private storage.
- * Generation after the first download is fully offline and does not send prompts to a server.
+ * Private on-device inference. Model weights are downloaded once and verified before use.
+ * Prompts are not sent to a server in local mode.
  */
 object LocalLlm {
+    // Pin a model revision so a remote file change cannot silently break installation.
     private const val MODEL_URL =
-        "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf"
-    private const val MODEL_FILE = "Qwen3-8B-Q4_K_M.gguf"
-    private const val MIN_MODEL_BYTES = 4_800_000_000L
-    private const val EXPECTED_SHA256 = "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785"
+        "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/3885219b6810b007914f3a7950a8d1b469d598a5/Qwen3.5-9B-Q4_K_S.gguf"
+    private const val MODEL_FILE = "Qwen3.5-9B-Q4_K_S.gguf"
+    private const val MIN_MODEL_BYTES = 5_000_000_000L
+    private const val EXPECTED_SHA256 =
+        "023713a5240bf58a84d2890a30deb2e0485abb5b9b9c33ba67596e9248b35f80"
+    private const val MIN_FREE_MEMORY_BYTES = 6_000_000_000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val modelMutex = Mutex()
@@ -39,38 +43,64 @@ object LocalLlm {
             try {
                 val modelFile = modelFile(context)
                 if (!modelFile.exists() || modelFile.length() < MIN_MODEL_BYTES) {
-                    callback.onProgress("Скачивание локальной модели Qwen — около 5,03 ГБ. Это делается один раз.")
+                    callback.onProgress("Скачиваю Qwen3.5 9B — примерно 5,8 ГБ. Загрузка нужна только один раз.")
                     downloadModel(modelFile) { percent ->
-                        callback.onProgress("Загрузка локальной модели: $percent%")
+                        callback.onProgress("Загрузка Qwen3.5 9B: $percent%")
                     }
                 }
+
                 val model = modelMutex.withLock {
                     val existing = loadedModel
-                    if (existing != null && existing.isLoaded) existing
-                    else Llama.loadModel(
-                        modelFile.absolutePath,
-                        LlamaConfig(contextSize = 2048, threads = recommendedThreads())
-                    ).also { loadedModel = it }
+                    if (existing != null && existing.isLoaded) {
+                        existing
+                    } else {
+                        val freeBytes = availableMemoryBytes(context)
+                        if (freeBytes < MIN_FREE_MEMORY_BYTES) {
+                            throw IllegalStateException(
+                                "Недостаточно свободной оперативной памяти. Сейчас доступно " +
+                                    formatGb(freeBytes) +
+                                    " ГБ, а для устойчивого запуска этой модели желательно около 6–7 ГБ. " +
+                                    "Закрой тяжёлые приложения и попробуй снова."
+                            )
+                        }
+                        val contextSize = recommendedContextSize(freeBytes)
+                        callback.onProgress(
+                            "Подготавливаю модель · контекст $contextSize · CPU-режим"
+                        )
+                        Llama.loadModel(
+                            modelFile.absolutePath,
+                            LlamaConfig(contextSize = contextSize, threads = recommendedThreads())
+                        ).also { loadedModel = it }
+                    }
                 }
-                callback.onProgress("Модель загружена. Генерирую ответ на устройстве…")
+
+                callback.onProgress("Qwen3.5 9B готова. Формирую ответ на устройстве…")
                 val (systemPrompt, prompt) = makePrompt(requestJson)
                 val response = inferenceMutex.withLock {
-                    Llama.complete(model, prompt, systemPrompt = systemPrompt, maxTokens = 384)
+                    Llama.complete(model, prompt, systemPrompt = systemPrompt, maxTokens = 640)
+                }
+                val cleanAnswer = removePrivateThinking(response.text).trim()
+                if (cleanAnswer.isBlank()) {
+                    throw IllegalStateException(
+                        "Модель не выдала готовый ответ. Повтори запрос или сократи его."
+                    )
                 }
                 val result = JSONObject()
                     .put("ok", true)
-                    .put("answer", response.text.trim())
-                    .put("provider", "Локальная Qwen3 8B")
+                    .put("answer", cleanAnswer)
+                    .put("provider", "Qwen3.5 9B · локально")
                     .put("tokensGenerated", response.tokensGenerated)
                     .put("tokensPerSecond", response.tokensPerSecond)
                 withContext(Dispatchers.Main) { callback.onResult(result.toString()) }
             } catch (t: Throwable) {
                 val message = when {
                     t.message?.contains("Unable to resolve host", true) == true ||
-                    t.message?.contains("Connect", true) == true ->
+                        t.message?.contains("Connect", true) == true ->
                         "Не удалось скачать модель. Проверь подключение к интернету и повтори запрос."
                     t.message?.contains("SHA-256", true) == true ->
-                        "Загрузка модели повреждена. Повтори запрос, чтобы скачать файл заново."
+                        "Проверка целостности не пройдена. Повтори запрос, чтобы скачать модель заново."
+                    t.message?.contains("Недостаточно свободной оперативной памяти", true) == true ->
+                        t.message ?: "Недостаточно свободной оперативной памяти."
                     else -> "Локальная модель не запустилась: ${t.message ?: t.javaClass.simpleName}"
                 }
                 val result = JSONObject().put("ok", false).put("error", message)
@@ -81,10 +111,13 @@ object LocalLlm {
 
     fun status(context: Context): JSONObject {
         val file = modelFile(context)
+        val memory = availableMemoryBytes(context)
         return JSONObject()
             .put("ready", file.exists() && file.length() >= MIN_MODEL_BYTES)
-            .put("model", "Qwen3 8B Instruct · Q4_K_M")
+            .put("model", "Qwen3.5 9B Instruct · Q4_K_S")
             .put("sizeBytes", if (file.exists()) file.length() else 0L)
+            .put("sizeLabel", "≈5,8 ГБ")
+            .put("availableMemoryBytes", memory)
             .put("offlineAfterDownload", true)
     }
 
@@ -99,102 +132,153 @@ object LocalLlm {
 
     private fun modelFile(context: Context): File {
         val root = context.getExternalFilesDir("models") ?: File(context.filesDir, "models")
-        if (!root.exists() && !root.mkdirs()) throw IllegalStateException("Не удалось создать папку модели")
+        if (!root.exists() && !root.mkdirs()) {
+            throw IllegalStateException("Не удалось создать папку модели")
+        }
         return File(root, MODEL_FILE)
     }
 
+    private fun availableMemoryBytes(context: Context): Long {
+        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val info = ActivityManager.MemoryInfo()
+        manager.getMemoryInfo(info)
+        return info.availMem
+    }
+
+    private fun recommendedContextSize(freeBytes: Long): Int {
+        // Keep more RAM available for Android when other apps are still resident.
+        return if (freeBytes >= 7_000_000_000L) 4096 else 2048
+    }
+
     private fun recommendedThreads(): Int {
-        val cores = Runtime.getRuntime().availableProcessors()
-        return cores.coerceIn(2, 6)
+        // A small reserve reduces thermal throttling on a phone during long answers.
+        return Runtime.getRuntime().availableProcessors().coerceIn(4, 6)
+    }
+
+    private fun formatGb(bytes: Long): String = String.format(
+        java.util.Locale.ROOT, "%.1f", bytes.toDouble() / 1_000_000_000.0
+    )
+
+    private fun removePrivateThinking(text: String): String {
+        val source = text.trim()
+        val close = source.lastIndexOf("</think>")
+        if (close >= 0) return source.substring(close + "</think>".length).trim()
+        val open = source.indexOf("<think>")
+        if (open >= 0) return source.substring(0, open).trim()
+        return source
+            .replace("<|im_start|>assistant", "")
+            .replace("<|im_end|>", "")
+            .trim()
     }
 
     private fun makePrompt(requestJson: String): Pair<String, String> {
         val root = JSONObject(requestJson)
         val messages = root.optJSONArray("messages")
-        var system = "Ты — Nova, полноценный ИИ-помощник. Выполняй задачу пользователя, а не просто объясняй термины. Для практических просьб давай готовый результат: пошаговый план, конкретные примеры, расчёты или код по необходимости. Для учебных задач показывай ход решения. Уточняй только если без этого нельзя ответить. Не повторяй вопрос и не уходи в общие определения. Если не уверен — честно обозначь неопределённость. Отвечай на языке пользователя."
-        if (messages == null || messages.length() == 0) return system to requestJson.take(12000)
+        var system = """
+            Ты — Nova, внимательный и компетентный ИИ-помощник. Тщательно анализируй задачу и проверяй результат перед ответом.
+            Отвечай на языке пользователя. Сначала дай прямой ответ, затем объяснение или шаги, если они нужны.
+            Для математики показывай необходимые вычисления и проверку результата; для программирования давай рабочий, законченный код с кратким объяснением.
+            Не выдумывай факты, источники, выполненные действия или возможности. Если данных не хватает, обозначь неопределённость и укажи, что именно нужно проверить.
+            Сохраняй важный контекст беседы, не повторяй вопрос и не подменяй решение общими определениями.
+            Не выводи скрытые внутренние рассуждения дословно: вместо этого сообщай краткое обоснование, проверяемые шаги и вывод.
+            Будь ясным и достаточно подробным, но не растягивай простой ответ.
+        """.trimIndent()
+        if (messages == null || messages.length() == 0) {
+            return system to requestJson.take(12000)
+        }
 
         val first = messages.optJSONObject(0)
-        if (first?.optString("role") == "system") {
-            val provided = first.optString("content")
-            if (provided.isNotBlank()) system = system + "\n" + provided
-        }
         val start = if (first?.optString("role") == "system") 1 else 0
+        if (start == 1) {
+            val provided = first?.optString("content").orEmpty()
+            if (provided.isNotBlank()) system += "\n\nИнструкции приложения: $provided"
+        }
+
         val transcript = StringBuilder()
-        val from = (start until messages.length()).maxOfOrNull { it }?.let { maxOf(start, it - 11) } ?: start
+        val from = maxOf(start, messages.length() - 13)
         for (i in from until messages.length()) {
             val item = messages.optJSONObject(i) ?: continue
             val role = item.optString("role")
             if (role != "user" && role != "assistant") continue
             val speaker = if (role == "assistant") "Nova" else "Пользователь"
-            val value = item.optString("content").take(3000)
+            val value = item.optString("content").take(3500)
             transcript.append(speaker).append(": ").append(value).append("\n\n")
         }
-        return system to transcript.toString().takeLast(9000)
+        return system to transcript.toString().takeLast(10000)
     }
 
-    private suspend fun downloadModel(target: File, onProgress: (Int) -> Unit) = withContext(Dispatchers.IO) {
-        val part = File(target.parentFile, target.name + ".part")
-        var attempt = 0
-        while (attempt < 3) {
-            attempt++
-            var connection: HttpURLConnection? = null
-            try {
-                val existing = if (part.exists()) part.length() else 0L
-                connection = (URL(MODEL_URL + "?download=true").openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 20000
-                    readTimeout = 45000
-                    instanceFollowRedirects = true
-                    setRequestProperty("User-Agent", "NovaAI-Android/0.5")
-                    if (existing > 0L) setRequestProperty("Range", "bytes=$existing-")
-                }
-                connection.connect()
-                val code = connection.responseCode
-                if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL) {
-                    throw IllegalStateException("Сервер модели вернул HTTP $code")
-                }
-                val append = existing > 0L && code == HttpURLConnection.HTTP_PARTIAL
-                if (existing > 0L && code == HttpURLConnection.HTTP_OK) part.delete()
-                val startBytes = if (append) existing else 0L
-                val total = if (connection.contentLengthLong > 0L) startBytes + connection.contentLengthLong else -1L
-                connection.inputStream.use { input ->
-                    FileOutputStream(part, append).use { output ->
-                        val buffer = ByteArray(1024 * 128)
-                        var read: Int
-                        var lastPercent = -1
-                        var downloaded = startBytes
-                        while (input.read(buffer).also { read = it } != -1) {
-                            output.write(buffer, 0, read)
-                            downloaded += read
-                            if (total > 0L) {
-                                val percent = ((downloaded * 100L) / total).toInt().coerceIn(0, 100)
-                                if (percent != lastPercent) {
-                                    lastPercent = percent
-                                    withContext(Dispatchers.Main) { onProgress(percent) }
+    private suspend fun downloadModel(target: File, onProgress: (Int) -> Unit) =
+        withContext(Dispatchers.IO) {
+            val part = File(target.parentFile, target.name + ".part")
+            var attempt = 0
+            while (attempt < 3) {
+                attempt++
+                var connection: HttpURLConnection? = null
+                try {
+                    val existing = if (part.exists()) part.length() else 0L
+                    connection = (URL(MODEL_URL + "?download=true").openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 20000
+                        readTimeout = 45000
+                        instanceFollowRedirects = true
+                        setRequestProperty("User-Agent", "NovaAI-Android/0.6")
+                        if (existing > 0L) setRequestProperty("Range", "bytes=$existing-")
+                    }
+                    connection.connect()
+                    val code = connection.responseCode
+                    if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL) {
+                        throw IllegalStateException("Сервер модели вернул HTTP $code")
+                    }
+                    val append = existing > 0L && code == HttpURLConnection.HTTP_PARTIAL
+                    if (existing > 0L && code == HttpURLConnection.HTTP_OK) part.delete()
+                    val startBytes = if (append) existing else 0L
+                    val total = if (connection.contentLengthLong > 0L) {
+                        startBytes + connection.contentLengthLong
+                    } else {
+                        -1L
+                    }
+                    connection.inputStream.use { input ->
+                        FileOutputStream(part, append).use { output ->
+                            val buffer = ByteArray(1024 * 128)
+                            var lastPercent = -1
+                            var downloaded = startBytes
+                            while (true) {
+                                val read = input.read(buffer)
+                                if (read == -1) break
+                                output.write(buffer, 0, read)
+                                downloaded += read
+                                if (total > 0L) {
+                                    val percent = ((downloaded * 100L) / total).toInt().coerceIn(0, 100)
+                                    if (percent != lastPercent) {
+                                        lastPercent = percent
+                                        withContext(Dispatchers.Main) { onProgress(percent) }
+                                    }
                                 }
                             }
+                            output.fd.sync()
                         }
-                        output.fd.sync()
                     }
+                    if (part.length() < MIN_MODEL_BYTES) {
+                        throw IllegalStateException("Размер скачанной модели слишком мал")
+                    }
+                    val digest = sha256(part)
+                    if (!digest.equals(EXPECTED_SHA256, ignoreCase = true)) {
+                        part.delete()
+                        throw IllegalStateException("SHA-256 не совпал")
+                    }
+                    onProgress(100)
+                    if (target.exists()) target.delete()
+                    if (!part.renameTo(target)) {
+                        throw IllegalStateException("Не удалось сохранить модель")
+                    }
+                    return@withContext
+                } catch (e: Throwable) {
+                    if (attempt >= 3 || e.message?.contains("SHA-256", true) == true) throw e
+                    kotlinx.coroutines.delay(800L * attempt)
+                } finally {
+                    connection?.disconnect()
                 }
-                if (part.length() < MIN_MODEL_BYTES) throw IllegalStateException("Размер скачанной модели слишком мал")
-                onProgress(100)
-                val digest = sha256(part)
-                if (!digest.equals(EXPECTED_SHA256, ignoreCase = true)) {
-                    part.delete()
-                    throw IllegalStateException("SHA-256 не совпал")
-                }
-                if (target.exists()) target.delete()
-                if (!part.renameTo(target)) throw IllegalStateException("Не удалось сохранить модель")
-                return@withContext
-            } catch (e: Throwable) {
-                if (attempt >= 3 || e.message?.contains("SHA-256", true) == true) throw e
-                kotlinx.coroutines.delay(800L * attempt)
-            } finally {
-                connection?.disconnect()
             }
         }
-    }
 
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
