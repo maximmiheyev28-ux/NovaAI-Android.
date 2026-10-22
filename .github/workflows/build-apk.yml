@@ -75,10 +75,14 @@ jobs:
                   lines.insert(dependency_block[-1] + 1, "    implementation 'dev.ffmpegkit-maintained:llama-android:0.1.1'")
               else:
                   lines.extend(["", "dependencies {", "    implementation 'dev.ffmpegkit-maintained:llama-android:0.1.1'", "}"])
+          # Keep Java and Kotlin bytecode targets aligned with the base project (Java 8).
           if not any("kotlinOptions" in line for line in lines):
               android_block = next((i for i, line in enumerate(lines) if line.strip().startswith("android") and "{" in line), None)
               if android_block is not None:
-                  lines.insert(android_block + 1, "    kotlinOptions { jvmTarget = '11' }")
+                  lines.insert(android_block + 1, "    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }")
+                  lines.insert(android_block + 2, "    kotlinOptions { jvmTarget = '1.8' }")
+          else:
+              lines = [line.replace("jvmTarget = '11'", "jvmTarget = '1.8'").replace('jvmTarget = "11"', 'jvmTarget = "1.8"') for line in lines]
           app.write_text("\n".join(lines) + "\n")
           PY
           sed -i 's/versionCode 1/versionCode 4/' unpacked/NovaAI_Android/app/build.gradle
