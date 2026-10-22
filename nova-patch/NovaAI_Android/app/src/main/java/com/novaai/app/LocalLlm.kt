@@ -56,55 +56,56 @@ object LocalLlm {
                     }
                 }
 
-                val model = modelMutex.withLock {
-                    val existing = loadedModel
-                    if (existing != null && existing.isLoaded) {
-                        existing
-                    } else {
-                        val freeBytes = availableMemoryBytes(context)
-                        if (freeBytes < MIN_FREE_MEMORY_BYTES) {
-                            throw IllegalStateException(
-                                "Недостаточно свободной оперативной памяти. Сейчас доступно " +
-                                    formatGb(freeBytes) +
-                                    " ГБ. Для этой модели нужно хотя бы около 2,5 ГБ доступной системной памяти. " +
-                                    "Закрой тяжёлые приложения и попробуй снова."
-                            )
-                        }
-                        var loaded: LlamaModel? = null
-                        var lastLoadError: Throwable? = null
-                        for (contextSize in recommendedContextSizes(freeBytes)) {
-                            callback.onProgress(
-                                "Подготавливаю Qwen2.5 3B · контекст $contextSize · CPU-режим"
-                            )
-                            try {
-                                loaded = Llama.loadModel(
-                                    modelFile.absolutePath,
-                                    LlamaConfig(contextSize = contextSize, threads = recommendedThreads())
-                                )
-                                break
-                            } catch (t: Throwable) {
-                                lastLoadError = t
-                                val memoryFailure = t is OutOfMemoryError ||
-                                    t.message?.let { message ->
-                                        message.contains("memory", ignoreCase = true) ||
-                                            message.contains("alloc", ignoreCase = true) ||
-                                            message.contains("памяти", ignoreCase = true)
-                                    } == true
-                                if (!memoryFailure) throw t
-                                System.gc()
-                            }
-                        }
-                        (loaded ?: throw IllegalStateException(
-                            "Не удалось загрузить модель даже с уменьшенным контекстом. " +
-                                (lastLoadError?.message ?: "Освободи оперативную память и повтори попытку."),
-                            lastLoadError
-                        )).also { loadedModel = it }
-                    }
-                }
-
-                callback.onProgress("Qwen2.5 3B готова. Формирую ответ на устройстве…")
-                val (systemPrompt, prompt) = makePrompt(requestJson)
                 val response = inferenceMutex.withLock {
+                    // Keep the inference lock from model lookup/load through completion so
+                    // onTrimMemory cannot unload native weights between these operations.
+                    val model = modelMutex.withLock {
+                        val existing = loadedModel
+                        if (existing != null && existing.isLoaded) {
+                            existing
+                        } else {
+                            val freeBytes = availableMemoryBytes(context)
+                            if (freeBytes < MIN_FREE_MEMORY_BYTES) {
+                                throw IllegalStateException(
+                                    "Недостаточно свободной оперативной памяти. Сейчас доступно " +
+                                        formatGb(freeBytes) +
+                                        " ГБ. Для этой модели нужно хотя бы около 2,5 ГБ доступной системной памяти. " +
+                                        "Закрой тяжёлые приложения и попробуй снова."
+                                )
+                            }
+                            var loaded: LlamaModel? = null
+                            var lastLoadError: Throwable? = null
+                            for (contextSize in recommendedContextSizes(freeBytes)) {
+                                callback.onProgress(
+                                    "Подготавливаю Qwen2.5 3B · контекст $contextSize · CPU-режим"
+                                )
+                                try {
+                                    loaded = Llama.loadModel(
+                                        modelFile.absolutePath,
+                                        LlamaConfig(contextSize = contextSize, threads = recommendedThreads())
+                                    )
+                                    break
+                                } catch (t: Throwable) {
+                                    lastLoadError = t
+                                    val memoryFailure = t is OutOfMemoryError ||
+                                        t.message?.let { message ->
+                                            message.contains("memory", ignoreCase = true) ||
+                                                message.contains("alloc", ignoreCase = true) ||
+                                                message.contains("памяти", ignoreCase = true)
+                                        } == true
+                                    if (!memoryFailure) throw t
+                                    System.gc()
+                                }
+                            }
+                            (loaded ?: throw IllegalStateException(
+                                "Не удалось загрузить модель даже с уменьшенным контекстом. " +
+                                    (lastLoadError?.message ?: "Освободи оперативную память и повтори попытку."),
+                                lastLoadError
+                            )).also { loadedModel = it }
+                        }
+                    }
+                    callback.onProgress("Qwen2.5 3B готова. Формирую ответ на устройстве…")
+                    val (systemPrompt, prompt) = makePrompt(requestJson)
                     Llama.complete(model, prompt, systemPrompt = systemPrompt, maxTokens = 640)
                 }
                 val cleanAnswer = removePrivateThinking(response.text).trim()
