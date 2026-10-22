@@ -16,8 +16,8 @@ function setMode(next){
   mode=next;localStorage.setItem("nova.mode",mode);
   document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));
   const welcomeText=$("#welcomeText"); if(welcomeText) welcomeText.textContent=mode==="solo"?"Локальная нейросеть Qwen запускается на устройстве. При первом запросе потребуется скачать модель (~429 МБ); затем она работает без интернета.":"Добавь до трёх совместимых API в настройках: Nova опросит их параллельно и покажет сравнение ответов.";
-  const composerNote=$("#composerNote"); if(composerNote) composerNote.textContent=mode==="council"?"Параллельный опрос настроенных моделей":"Ответ от настроенной модели";
-  const connectionStatus=$("#connectionStatus"); if(connectionStatus) if(mode==="council")connectionStatus.textContent="Совет ИИ · "+getProviders().length+" моделей";else{try{const st=JSON.parse(window.NovaBridge?.getLocalModelStatus?.()||"{}");connectionStatus.textContent=st.ready?"Локальная модель · готова":"Локальная модель · загрузится при первом запросе";}catch(_){connectionStatus.textContent="Локальная модель";}}
+  const composerNote=$("#composerNote"); if(composerNote) composerNote.textContent=mode==="council"?"Параллельный опрос настроенных моделей":"Локальная модель на устройстве";
+  const connectionStatus=$("#connectionStatus"); if(connectionStatus) if(mode==="council"){const count=getProviders().length;connectionStatus.textContent="Совет ИИ · "+count+" моделей";}else{try{const st=JSON.parse(window.NovaBridge?.getLocalModelStatus?.()||"{}");connectionStatus.textContent=st.ready?"Локальная модель · готова":"Локальная модель · загрузится при первом запросе";}catch(_){connectionStatus.textContent="Локальная модель";}}
 }
 function addMessage(role,content,label,persist=true){
   $("#welcome")?.remove();
@@ -84,7 +84,7 @@ async function answerWithFreeServices(userText){
     }
     return {error:local?.error||"Локальная модель не ответила."};
   }
-  if(!providers.length) return {error:"Режим «Совет ИИ» не настроен. Добавь минимум две совместимые модели в настройках. Локальная модель работает отдельно в режиме Nova."};
+  if(providers.length<2) return {error:"Для режима «Совет ИИ» настрой минимум две совместимые модели. Локальная модель работает отдельно в режиме Nova."};
   const results=await Promise.all(providers.map(p=>apiCall(p,messages).catch(e=>({ok:false,provider:p.name,error:e.message||"Ошибка запроса"}))));
   const good=results.filter(r=>r.ok&&r.answer&&r.answer.trim());
   if(!good.length) return {error:"Ни одна модель не ответила. "+results.map(r=>(r.provider||"Модель")+": "+(r.error||"пустой ответ")).join(" · ")};
