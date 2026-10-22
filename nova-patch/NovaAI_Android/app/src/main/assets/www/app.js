@@ -518,16 +518,44 @@ async function answerWithFreeServices(userText) {
     return { error: local?.error || "Локальная модель не ответила." };
   }
 
-  if (!providers.length) {
-    return {
-      error: "Совет ИИ пока не подключён. В настройках выбери OpenRouter, укажи API-ключ и модель openrouter/free. У бесплатных моделей есть лимиты."
-    };
-  }
-
   const localStatus = getLocalModelStatus();
-  if (providers.length === 1 && !localStatus.ready) {
+
+  // With no cloud providers, keep Council useful without keys or internet:
+  // generate a local draft, then run a separate local critique of that draft.
+  // This is explicitly labelled as self-review, not as a second independent model.
+  if (!providers.length) {
+    const draft = await localCall(messages);
+    if (!draft?.ok || !draft.answer?.trim()) {
+      return {
+        error: "Совет ИИ не смог запустить локальную модель. " +
+          (draft?.error || "Проверь свободную память и повтори попытку.")
+      };
+    }
+    const reviewMessages = [
+      {
+        role: "system",
+        content: "Ты — строгий редактор и проверяющий ответов. Найди фактические ошибки, пропущенные условия, логические скачки и неясности в черновике. Если задача математическая или программная, проверь вычисления или код. Затем дай исправленный, самостоятельный итоговый ответ. Не утверждай, что проверил внешние источники, если их не было."
+      },
+      {
+        role: "user",
+        content: "Исходный запрос пользователя:\n" + userText +
+          "\n\nЧерновик локальной модели:\n" + draft.answer +
+          "\n\nПроверь черновик и выдай улучшенный итоговый ответ. Кратко укажи важные исправления, если они есть."
+      }
+    ];
+    const review = await localCall(reviewMessages);
+    if (!review?.ok || !review.answer?.trim()) {
+      return {
+        answer: draft.answer,
+        source: "Совет ИИ · локальный черновик",
+        meta: "Локальная самопроверка не завершилась: " + (review?.error || "нет ответа") +
+          ". Черновик не проверен независимой моделью."
+      };
+    }
     return {
-      error: "Для Совета ИИ нужны минимум два участника. Сначала открой режим Nova и дождись загрузки локальной модели (около 1,93 ГБ), либо добавь вторую облачную модель в настройках."
+      answer: review.answer,
+      source: "Совет ИИ · локальная самопроверка",
+      meta: "Без облачных подключений: один локальный ИИ подготовил черновик и отдельно его проверил. Это не независимое мнение второй модели."
     };
   }
 
@@ -536,13 +564,14 @@ async function answerWithFreeServices(userText) {
       ok: false, provider: provider.name, error: error.message || "Ошибка запроса"
     }))
   );
-  if (localStatus.ready) {
-    jobs.push(
-      localCall(messages).catch(error => ({
-        ok: false, provider: MODEL_NAME + " · локально", error: error.message || "Ошибка локальной модели"
-      }))
-    );
-  }
+  // Start the local model even when it has not been downloaded yet. localCall
+  // downloads and verifies the model on first use, so one cloud provider plus
+  // the local model is enough for a genuine two-participant Council.
+  jobs.push(
+    localCall(messages).catch(error => ({
+      ok: false, provider: MODEL_NAME + " · локально", error: error.message || "Ошибка локальной модели"
+    }))
+  );
 
   const results = await Promise.all(jobs);
   const good = results.filter(result => result.ok && result.answer && result.answer.trim());
@@ -550,7 +579,7 @@ async function answerWithFreeServices(userText) {
     return {
       error: "Совет ИИ получил меньше двух ответов. " +
         results.map(result => (result.provider || "Модель") + ": " + (result.error || "пустой ответ")).join(" · ") +
-        ". Проверь ключи, названия моделей и доступность API."
+        ". Проверь API-ключи, названия моделей и доступность сети."
     };
   }
 
