@@ -28,7 +28,7 @@ def blocked_cached_item(item: dict) -> bool:
     # Cached entries must still suit the Android-first target profile.
     desktop_heavy = re.compile(
         r"senior|full.?stack|engineer|developer|разработчик|программир|рефакторинг|"
-        r"figma|photoshop|illustrator|autocad|premiere.?pro|after.?effects|solidworks|revit|blender|3ds.?max|"
+        r"figma|photoshop|illustrator|autocad|premiere.?pro|after.?effects|solidworks|revit|blender|3ds.?max|touch.?screen|interactive.?presentation|интерактивн.{0,12}(?:презентац|викторин)|"
         r"php|python|java|c\+\+|qt|modbus|linux|opencart|wordpress|верстк|"
         r"лендинг|дизайн.{0,12}(?:сайт|лендинг|макет)|конструкторск|черт[её]ж|"
         r"мониторинг цен|парсинг|сбор с сайтов|rag|hmi|modbus|интернет-магазин|"
