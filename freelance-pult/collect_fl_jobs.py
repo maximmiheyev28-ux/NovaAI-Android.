@@ -57,7 +57,11 @@ POSITIVE_RE = re.compile(
     r"copywriting|data entry|virtual assistant|translation|translator|"
     r"transcription|proofread|copy edit|product listing|spreadsheet|"
     r"data annotat|social media|community manager|content moderation|"
-    r"localization|localisation|editor|writing|blog post|article writer",
+    r"localization|localisation|editor|writing|blog post|article writer|"
+    r"communications professional|communications|customer support|customer service|"
+    r"user research|usability testing|game testing|screen recording|record video|"
+    r"data labeling|data annotation|lead generation|research assistant|"
+    r"собрать базу|сбор базы|сбор данных|видеозапис|играть в браузерную игру",
     re.I,
 )
 MOBILE_RE = re.compile(
@@ -67,7 +71,32 @@ MOBILE_RE = re.compile(
     r"каталог|проверка текст|content writer|copywriter|copywriting|"
     r"data entry|virtual assistant|translation|translator|transcription|"
     r"proofread|copy edit|product listing|spreadsheet|content moderation|"
-    r"localization|localisation|editor|writing|blog post|article writer",
+    r"localization|localisation|editor|writing|blog post|article writer|"
+    r"communications professional|communications|customer support|customer service|"
+    r"user research|usability testing|game testing|screen recording|record video|"
+    r"data labeling|data annotation|lead generation|research assistant|"
+    r"собрать базу|сбор базы|сбор данных|видеозапис|играть в браузерную игру",
+    re.I,
+)
+MOBILE_TITLE_RE = re.compile(
+    r"контент|копирайт|стать|описан|карточк|таблиц|excel|документ|презентац|"
+    r"перевод|расшифров|редакт|коррект|ввод данных|заполнение данных|помощник|"
+    r"ассистент|виртуальн.{0,12}помощник|постинг|набор текста|редактор|корректор|"
+    r"отч[её]т|собрать базу|сбор базы|сбор данных|опубликовать готовую статью|"
+    r"communications professional|communications|customer support|customer service|"
+    r"virtual assistant|data entry|translation|translator|transcription|copywriter|"
+    r"content writer|proofread|copy edit|spreadsheet|product listing|user research|"
+    r"usability testing|game testing|screen recording|record video|research assistant|"
+    r"data labeling|data annotation|lead generation|social media|community manager|"
+    r"survey|play.{0,25}game|играть в браузерную игру|видеозапис",
+    re.I,
+)
+TECH_HEAVY_TITLE_RE = re.compile(
+    r"senior|full.?stack|engineer|developer|разработчик|программир|рефакторинг|"
+    r"php|python|java|c\+\+|qt|modbus|linux|opencart|wordpress|"
+    r"верстк|дизайн.{0,12}(?:сайт|лендинг|макет)|лендинг|корпоративный сайт|"
+    r"веб.?платформ|ии.?агент|ai.?agent|seo.?аудит|seo.?специалист|"
+    r"настроить.{0,20}(?:crm|телефони|интеграц)|автоматизац.{0,20}(?:процесс|ии)",
     re.I,
 )
 CRITICAL_RISKS = [
@@ -81,6 +110,8 @@ CRITICAL_RISKS = [
      "Просят установить APK или предоставить удалённый доступ."),
 ]
 SOFT_RISKS = [
+    (re.compile(r"оставить отзыв|отзыв.{0,15}(?:2gis|картах|карты)|write a review|post a review", re.I),
+     "Если задача требует отзыв, он должен отражать реальный личный опыт; не размещай выдуманные отзывы."),
     (re.compile(r"плат(?:а|н(?:ый|ая|ого|ые)?).{0,20}отклик|покупк.{0,20}отклик|оплат.{0,20}отклик", re.I),
      "Проверь, является ли платный отклик официальной функцией площадки; не переводи деньги напрямую заказчику."),
     (re.compile(r"бесплатн.{0,25}тест|тестов.{0,25}задан.{0,25}бесплат|unpaid\s+test|free\s+test\s+task", re.I),
@@ -169,6 +200,8 @@ def parse_money(text: str) -> tuple[int, int, str]:
 
 def score_item(title: str, description: str, published_at: str, price_max: int) -> tuple[int, list[str], list[str], bool, bool]:
     text = (title + "\n" + description).lower()
+    title_text = title.lower()
+    description_text = description.lower()
     reasons: list[str] = []
     risks: list[str] = []
     critical = False
@@ -179,18 +212,32 @@ def score_item(title: str, description: str, published_at: str, price_max: int) 
     for pattern, message in SOFT_RISKS:
         if pattern.search(text):
             risks.append(message)
-    matched = bool(POSITIVE_RE.search(text))
-    mobile = bool(MOBILE_RE.search(text))
-    score = 22
-    if matched:
-        score += 32
-        reasons.append("Совпадает с выбранными типами цифровых задач")
-    if mobile:
-        score += 16
-        reasons.append("Возможно выполнять преимущественно с телефона")
+
+    title_match = bool(POSITIVE_RE.search(title_text))
+    body_match = bool(POSITIVE_RE.search(description_text))
+    matched = title_match or body_match
+    mobile_title = bool(MOBILE_TITLE_RE.search(title_text))
+    mobile_body = bool(MOBILE_RE.search(description_text))
+    score = 18
+
+    if title_match:
+        score += 34
+        reasons.append("Название совпадает с целевыми типами цифровых задач")
+    elif body_match:
+        score += 10
+        reasons.append("Ключевые слова найдены только в описании; уточни реальную суть работы")
+
+    if mobile_title:
+        score += 26
+        reasons.append("Название указывает на задачу, которую обычно можно выполнять с телефона")
+    elif mobile_body:
+        score += 5
+        reasons.append("Телефонный сценарий не подтверждён названием, только отдельными словами описания")
+
     if price_max:
         score += 7
         reasons.append("В источнике указан бюджет или диапазон оплаты")
+
     if published_at:
         try:
             age_hours = max(0.0, (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(published_at.replace("Z", "+00:00"))).total_seconds() / 3600)
@@ -205,8 +252,12 @@ def score_item(title: str, description: str, published_at: str, price_max: int) 
                 reasons.append("Опубликовано в течение последней недели")
         except (TypeError, ValueError):
             pass
-    if not mobile and matched:
-        score -= 12
+
+    if not mobile_title:
+        score -= 10
+    if TECH_HEAVY_TITLE_RE.search(title_text) and not mobile_title:
+        score -= 24
+        reasons.append("Вероятно требуются специальные навыки или работа за компьютером; оцени свои возможности")
     if risks:
         critical_count = sum(1 for _, message in CRITICAL_RISKS if message in risks)
         score -= 18 * critical_count + 7 * (len(risks) - critical_count)
@@ -293,7 +344,6 @@ def parse_himalayas_search(name: str, params: dict[str, str]) -> list[dict]:
     rows = payload.get("jobs", [])
     if not isinstance(rows, list):
         raise ValueError("Response has no jobs array")
-    print("Himalayas debug:", json.dumps({"url": url, "payload_keys": sorted(payload.keys()), "raw_jobs": len(rows)}, ensure_ascii=False))
     records: list[dict] = []
     for job in rows:
         if not isinstance(job, dict):
