@@ -10,6 +10,7 @@ on:
     paths:
       - ".github/workflows/refresh-fl-jobs.yml"
       - "freelance-pult/collect_fl_jobs.py"
+      - "freelance-pult/merge_jobs_feed.py"
 
 permissions:
   contents: write
@@ -27,8 +28,16 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Fetch and rank FL.ru RSS items
+      - name: Fetch last published snapshot
+        run: |
+          git fetch origin jobs-feed:refs/remotes/origin/jobs-feed || true
+          git show origin/jobs-feed:freelance-pult/jobs.json > /tmp/previous-jobs.json 2>/dev/null || printf '{"items":[]}' > /tmp/previous-jobs.json
+
+      - name: Collect and rank public jobs
         run: python3 freelance-pult/collect_fl_jobs.py --output freelance-pult/jobs.json
+
+      - name: Preserve recent results if feeds are temporarily unavailable
+        run: python3 freelance-pult/merge_jobs_feed.py --current freelance-pult/jobs.json --previous /tmp/previous-jobs.json --output freelance-pult/jobs.json --cache-hours 36
 
       - name: Publish JSON feed to jobs-feed branch
         env:
