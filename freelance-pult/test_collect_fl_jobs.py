@@ -14,6 +14,8 @@ class CollectorPolicyTests(unittest.TestCase):
         <description>Write product content. Remote job - United States only.</description><pubDate>Fri, 23 Oct 2026 12:00:00 +0000</pubDate></item>
         <item><title>Worldwide Content Writer</title><link>https://weworkremotely.com/remote-jobs/example-worldwide</link>
         <description>Write blog articles. Work from anywhere in the world.</description><pubDate>Fri, 23 Oct 2026 12:00:00 +0000</pubDate></item>
+        <item><title>Content Writer — USA</title><link>https://weworkremotely.com/remote-jobs/example-usa</link>
+        <description>Write content for a blog.</description><pubDate>Fri, 23 Oct 2026 12:00:00 +0000</pubDate></item>
         <item><title>Remote Copywriter</title><link>https://weworkremotely.com/remote-jobs/example-unknown</link>
         <description>Write articles and edit content. We have a remote team.</description><pubDate>Fri, 23 Oct 2026 12:00:00 +0000</pubDate></item>
         </channel></rss>"""
