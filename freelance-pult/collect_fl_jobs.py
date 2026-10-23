@@ -200,7 +200,8 @@ def parse_feed(feed_name: str, url: str) -> list[dict]:
         if not title or not link:
             continue
         parsed_url = urlparse(link)
-        if parsed_url.scheme not in ("http", "https") or not (parsed_url.hostname or "").lower().endswith("fl.ru"):
+        host = (parsed_url.hostname or "").lower()
+        if parsed_url.scheme not in ("http", "https") or not (host == "fl.ru" or host.endswith(".fl.ru")):
             continue
         description = clean_text(child_text(node, "description") or child_text(node, "summary") or child_text(node, "content"))
         pub = child_text(node, "pubDate") or child_text(node, "published") or child_text(node, "updated") or child_text(node, "date")
