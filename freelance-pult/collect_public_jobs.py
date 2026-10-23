@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """Collect public job feeds through documented, public endpoints.
 
-Himalayas is queried through its public jobs API, We Work Remotely via its
-public RSS (which explicitly permits use with source attribution), and FL.ru
-RSS when available. No logins, anti-bot workarounds, scraping of closed pages,
-proposal submissions, or financial actions are performed.
+Himalayas, Jobicy and Remote OK are queried through their public job APIs; We Work Remotely is read through its public RSS with source attribution. No logins, anti-bot workarounds, scraping of closed pages, proposal submissions, or financial actions are performed.
 """
 from __future__ import annotations
 
@@ -25,22 +22,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-FL_FEEDS = [
-    ("FL.ru · все проекты", "https://www.fl.ru/rss/all.xml"),
-    ("FL.ru · программирование", "https://www.fl.ru/rss/all.xml?category=5"),
-    ("FL.ru · продвижение сайтов", "https://www.fl.ru/rss/all.xml?category=6"),
-]
 HIMALAYAS_SEARCHES = [
     ("Himalayas · свежие вакансии · пакет 1", {"limit": "20", "offset": "0"}),
     ("Himalayas · свежие вакансии · пакет 2", {"limit": "20", "offset": "20"}),
     ("Himalayas · свежие вакансии · пакет 3", {"limit": "20", "offset": "40"}),
-    ("Himalayas · свежие вакансии · пакет 4", {"limit": "20", "offset": "60"}),
-    ("Himalayas · свежие вакансии · пакет 5", {"limit": "20", "offset": "80"}),
-    ("Himalayas · свежие вакансии · пакет 6", {"limit": "20", "offset": "100"}),
-    ("Himalayas · свежие вакансии · пакет 7", {"limit": "20", "offset": "120"}),
-    ("Himalayas · свежие вакансии · пакет 8", {"limit": "20", "offset": "140"}),
-    ("Himalayas · свежие вакансии · пакет 9", {"limit": "20", "offset": "160"}),
-    ("Himalayas · свежие вакансии · пакет 10", {"limit": "20", "offset": "180"}),
 ]
 HIMALAYAS_API = "https://himalayas.app/jobs/api"
 JOBICY_API = "https://jobicy.com/api/jobs"
@@ -71,51 +56,7 @@ POSITIVE_RE = re.compile(
     r"собрать базу|сбор базы|сбор данных|видеозапис|играть в браузерную игру",
     re.I,
 )
-MOBILE_RE = re.compile(
-    r"текст|копирайт|стать|описан|карточк|таблиц|excel|документ|"
-    r"презентац|контент|перевод|расшифров|редакт|коррект|ввод данных|"
-    r"заполнение данных|ассистент|помощник|постинг|набор текста|"
-    r"каталог|проверка текст|content writer|copywriter|copywriting|"
-    r"data entry|virtual assistant|translation|translator|transcription|"
-    r"proofread|copy edit|product listing|spreadsheet|content moderation|"
-    r"localization|localisation|editor|writing|blog post|article writer|"
-    r"communications professional|communications|customer support|customer service|"
-    r"user research|usability testing|game testing|screen recording|record video|"
-    r"data labeling|data annotation|lead generation|research assistant|"
-    r"собрать базу|сбор базы|сбор данных|видеозапис|играть в браузерную игру",
-    re.I,
-)
-MOBILE_TITLE_RE = re.compile(
-    r"контент|копирайт|стать|описан|карточк|таблиц|excel|документ|презентац|"
-    r"перевод|расшифров|редакт|коррект|ввод данных|заполнение данных|помощник|"
-    r"ассистент|виртуальн.{0,12}помощник|постинг|набор текста|редактор|корректор|"
-    r"отч[её]т|опубликовать готовую статью|"
-    r"virtual assistant|data entry|translation|translator|transcription|copywriter|"
-    r"content writer|proofread|copy edit|spreadsheet|product listing|user research|"
-    r"usability testing|game testing|screen recording|record video|research assistant|"
-    r"data labeling|data annotation|lead generation|social media|community manager|"
-    r"survey|play.{0,25}game|играть в браузерную игру|видеозапис",
-    re.I,
-)
-ANDROID_UNSUITABLE_TITLE_RE = re.compile(
-    r"figma|photoshop|illustrator|autocad|premiere.?pro|after.?effects|solidworks|revit|blender|3ds.?max|touch.?screen|interactive.?presentation|интерактивн.{0,12}(?:презентац|викторин)",
-    re.I,
-)
-TECH_HEAVY_TITLE_RE = re.compile(
-    r"senior|full.?stack|engineer|developer|разработчик|программир|рефакторинг|"
-    r"php|python|java|c\+\+|qt|modbus|linux|opencart|wordpress|"
-    r"верстк|дизайн.{0,12}(?:сайт|лендинг|макет)|лендинг|корпоративный сайт|"
-    r"веб.?платформ|ии.?агент|ai.?agent|seo.?аудит|seo.?специалист|"
-    r"настроить.{0,20}(?:crm|телефони|интеграц)|автоматизац.{0,20}(?:процесс|ии)|"
-    r"конструкторск|черт[её]ж|собрать базу|сбор базы|сбор данных|"
-    r"мониторинг цен|парсинг|сбор с сайтов|ландинг|дизайн лендинг|"
-    r"rag|hmi|modbus|интернет-магазин|интеграция.*crm|"
-    r"customer support|customer service|technical support|customer success|support specialist|"
-    r"account executive|sales director|regional sales|product director|"
-    r"customer service rep|communications professional|communications|"
-    r"marketing manager|head of|chief officer",
-    re.I,
-)
+
 CRITICAL_RISKS = [
     (re.compile(r"(?:оплат(?:ите|ить|а)\s+(?:доступ|регистрац|активац)|активац.{0,25}вывод|комисси.{0,25}для\s+вывода|внесите\s+(?:залог|оплату)|pay\s+(?:a\s+)?(?:fee|deposit|registration)|upfront\s+payment|activation\s+fee|unlock\s+(?:your\s+)?payment|withdrawal\s+fee)", re.I),
      "Требуют оплатить доступ, регистрацию или разблокировку выплаты."),
@@ -215,7 +156,9 @@ def parse_money(text: str) -> tuple[int, int, str]:
     return low, max(low, high), match.group(0).strip()
 
 
+
 def score_item(title: str, description: str, published_at: str, price_max: int) -> tuple[int, list[str], list[str], bool, bool]:
+    """Rank by relevance, freshness, budget and risk—not by the device used."""
     text = (title + "\n" + description).lower()
     title_text = title.lower()
     description_text = description.lower()
@@ -233,12 +176,7 @@ def score_item(title: str, description: str, published_at: str, price_max: int) 
     title_match = bool(POSITIVE_RE.search(title_text))
     body_match = bool(POSITIVE_RE.search(description_text))
     matched = title_match or body_match
-    technical_title = bool(TECH_HEAVY_TITLE_RE.search(title_text))
-    android_unsuitable = bool(ANDROID_UNSUITABLE_TITLE_RE.search(title_text))
-    mobile_title = bool(MOBILE_TITLE_RE.search(title_text)) and not technical_title and not android_unsuitable
-    mobile_body = bool(MOBILE_RE.search(description_text))
     score = 18
-
     if title_match:
         score += 34
         reasons.append("Название совпадает с целевыми типами цифровых задач")
@@ -246,47 +184,36 @@ def score_item(title: str, description: str, published_at: str, price_max: int) 
         score += 10
         reasons.append("Ключевые слова найдены только в описании; уточни реальную суть работы")
 
-    if mobile_title:
-        score += 26
-        reasons.append("Название указывает на задачу, которую обычно можно выполнять с телефона")
-    elif mobile_body:
-        score += 5
-        reasons.append("Телефонный сценарий не подтверждён названием, только отдельными словами описания")
-
     if price_max:
         score += 7
         reasons.append("В источнике указан бюджет или диапазон оплаты")
 
     if published_at:
         try:
-            age_hours = max(0.0, (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(published_at.replace("Z", "+00:00"))).total_seconds() / 3600)
-            if age_hours <= 24:
+            published_dt = dt.datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+            if published_dt.tzinfo is None:
+                published_dt = published_dt.replace(tzinfo=dt.timezone.utc)
+            age_hours = (dt.datetime.now(dt.timezone.utc) - published_dt.astimezone(dt.timezone.utc)).total_seconds() / 3600
+            if 0 <= age_hours <= 24:
                 score += 18
                 reasons.append("Опубликовано в течение последних 24 часов")
-            elif age_hours <= 72:
+            elif 0 <= age_hours <= 72:
                 score += 11
                 reasons.append("Опубликовано в течение последних 3 дней")
-            elif age_hours <= 168:
+            elif 0 <= age_hours <= 168:
                 score += 4
                 reasons.append("Опубликовано в течение последней недели")
-            else:
+            elif age_hours > 168:
                 score -= 30
                 reasons.append("Объявлению больше недели; проверь, открыт ли заказ")
         except (TypeError, ValueError):
             pass
 
-    if not mobile_title:
-        score -= 10
-    if technical_title:
-        score -= 32
-        reasons.append("Вероятно требуются специальные навыки или работа за компьютером; для работы только с Android это низкий приоритет")
-    if android_unsuitable:
-        score -= 55
-        reasons.append("Название указывает на профессиональный редактор/САПР, неудобный или непрактичный для выполнения только с Android")
     if risks:
         critical_count = sum(1 for _, message in CRITICAL_RISKS if message in risks)
         score -= 18 * critical_count + 7 * (len(risks) - critical_count)
     return max(0, min(100, score)), reasons, risks, matched, critical
+
 
 
 def read_url(url: str, accept: str = "application/json") -> bytes:
@@ -380,52 +307,6 @@ def parse_wwr_feed(url: str | None = None) -> list[dict]:
         })
     return records
 
-
-def parse_fl_feed(feed_name: str, url: str) -> list[dict]:
-    root = ET.fromstring(read_url(url, "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5"))
-    nodes = [node for node in root.iter() if local_name(node.tag) in ("item", "entry")]
-    records: list[dict] = []
-    for node in nodes:
-        title = clean_text(child_text(node, "title"))
-        link = child_text(node, "link").strip()
-        if not link:
-            for child in list(node):
-                if local_name(child.tag) == "link":
-                    link = child.attrib.get("href", "").strip()
-                    if link:
-                        break
-        if not title or not link:
-            continue
-        parsed_url = urlparse(link)
-        host = (parsed_url.hostname or "").lower()
-        if parsed_url.scheme not in ("http", "https") or not (host == "fl.ru" or host.endswith(".fl.ru")):
-            continue
-        description = clean_text(child_text(node, "description") or child_text(node, "summary") or child_text(node, "content"))
-        pub = child_text(node, "pubDate") or child_text(node, "published") or child_text(node, "updated") or child_text(node, "date")
-        published_at = parse_date(pub)
-        if published_at:
-            try:
-                age_hours = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(published_at.replace("Z", "+00:00"))).total_seconds() / 3600
-                if age_hours > 24 * 14:
-                    continue
-            except (TypeError, ValueError):
-                pass
-        price_min, price_max, budget_text = parse_money(title + "\n" + description)
-        date_match = DATE_RE.search(title + "\n" + description)
-        score, reasons, risks, matched, critical = score_item(title, description, published_at, price_max)
-        digest = hashlib.sha256(link.split("#")[0].encode("utf-8")).hexdigest()[:16]
-        records.append({
-            "id": digest, "title": title[:180], "link": link,
-            "description": description[:MAX_DESCRIPTION], "publishedAt": published_at,
-            "source": "FL.ru RSS", "feedName": feed_name, "score": score,
-            "fitReasons": reasons, "riskFlags": risks, "criticalRisk": critical,
-            "hasRelevantKeywords": matched, "budgetMin": price_min, "budgetMax": price_max,
-            "budgetText": budget_text, "currency": "RUB" if budget_text else "",
-            "deadlineHint": date_match.group(1) if date_match else "",
-            "locationText": "Уточнить доступность и условия у заказчика",
-            "paymentCheck": "Проверь возможность регистрации и вывода средств до начала работы.",
-        })
-    return records
 
 
 def salary_label(job: dict) -> tuple[int, int, str]:
@@ -822,7 +703,7 @@ def build_auto_package(item: dict) -> dict:
         ]
         steps = [
             "Разложить описание на измеримые результаты и критерии приёмки.",
-            "Проверить приложения, исходные материалы и доступность работы на Android.",
+            "Проверить исходные материалы, требуемые приложения и устройство.",
             "Согласовать небольшой пример, если он разумен и не является объёмным бесплатным заданием.",
             "Выполнить согласованный объём и проверить результат по требованиям.",
         ]
@@ -839,11 +720,8 @@ def build_auto_package(item: dict) -> dict:
         + "\\n\\nПосле уточнения объёма и формата смогу подтвердить реалистичный срок и стоимость. "
         "Предлагаю до начала согласовать критерии приёмки, число правок и безопасную оплату через площадку."
     )
-    desktop_risk = bool(ANDROID_UNSUITABLE_TITLE_RE.search(title) or TECH_HEAVY_TITLE_RE.search(title))
-    android_assessment = (
-        "Высокий риск ограничения Android: проверь нужные инструменты до обещания срока."
-        if desktop_risk else
-        "Возможно выполнение с Android, но проверь приложения, формат и объём до принятия."
+    device_assessment = (
+        "Устройства не ограничиваются телефоном. Проверь требуемые программы, доступы, формат файлов и объём до согласования срока."
     )
     plan_lines = [
         "ПРЕДВАРИТЕЛЬНЫЙ ПЛАН — проверь исходную карточку до отклика",
@@ -855,7 +733,7 @@ def build_auto_package(item: dict) -> dict:
         f"География: {geo or 'не указана; уточни допуск из РФ'}",
         "Оплата: " + pay,
         "Риски: " + ("; ".join(str(x) for x in risks) if risks else "автоматический фильтр не обнаружил явных сигналов; это не гарантия безопасности"),
-        "ПРИГОДНОСТЬ ДЛЯ ANDROID: " + android_assessment,
+        "УСТРОЙСТВА И ИНСТРУМЕНТЫ: " + device_assessment,
         "",
         "ШАГИ:",
         *[f"{i}. {step}" for i, step in enumerate(steps, 1)],
@@ -874,7 +752,7 @@ def build_auto_package(item: dict) -> dict:
         "questions": questions,
         "steps": steps,
         "qualityChecks": checks,
-        "androidAssessment": android_assessment,
+        "deviceAssessment": device_assessment,
         "workPlan": "\n".join(plan_lines),
         "preparedAt": now_iso(),
         "manualReviewRequired": True,
@@ -935,22 +813,8 @@ def main() -> int:
             feed_status.append({"name": wwr_feed_name, "url": wwr_feed_url, "ok": False, "error": message})
         time.sleep(0.25)
 
-    # FL.ru advertises an RSS subscription, but its endpoints may refuse cloud-runner requests.
-    # A 403 is recorded as a source limitation, never bypassed.
-    for feed_name, feed_url in FL_FEEDS:
-        try:
-            rows = parse_fl_feed(feed_name, feed_url)
-            all_items.extend(rows)
-            feed_status.append({"name": feed_name, "url": feed_url, "ok": True, "items": len(rows), "source": "FL.ru public RSS"})
-            successes += 1
-        except (urllib.error.URLError, urllib.error.HTTPError, ET.ParseError, TimeoutError, OSError, RuntimeError, ValueError) as exc:
-            message = f"{feed_name}: {type(exc).__name__}: {str(exc)[:180]}"
-            errors.append(message)
-            feed_status.append({"name": feed_name, "url": feed_url, "ok": False, "error": message})
-        time.sleep(0.3)
-
     if successes == 0:
-        print("All permitted public job sources failed; existing jobs.json left untouched.", file=sys.stderr)
+        print("All configured public job sources failed; existing jobs.json left untouched.", file=sys.stderr)
         print(json.dumps({"feeds": feed_status}, ensure_ascii=False), file=sys.stderr)
         return 2
 
@@ -975,11 +839,11 @@ def main() -> int:
 
     payload = {
         "schemaVersion": 1,
-        "source": "Himalayas, Jobicy, Remote OK, We Work Remotely public RSS, FL.ru RSS when reachable",
+        "source": "Himalayas public API, Jobicy public API, Remote OK public API, We Work Remotely public RSS",
         "checkedAt": checked_at,
         "apiUpdatedAt": "Himalayas API data is refreshed approximately once every 24 hours.",
         "maxAgeNotice": "The source does not confirm the employer will still accept applications; open the listing and verify all terms before applying.",
-        "attribution": "Sources: Himalayas (https://himalayas.app), Jobicy (https://jobicy.com), Remote OK (https://remoteok.com), We Work Remotely (https://weworkremotely.com); FL.ru RSS where available.",
+        "attribution": "Источники: Himalayas (https://himalayas.app), Jobicy (https://jobicy.com), Remote OK (https://remoteok.com), We Work Remotely (https://weworkremotely.com). Открой оригинальную карточку перед откликом.",
         "feeds": feed_status,
         "stats": {
             "fetchedUnique": len(all_unique),

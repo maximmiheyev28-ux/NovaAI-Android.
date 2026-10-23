@@ -33,27 +33,7 @@ def remove_stale_auto_package(item: dict, now: dt.datetime) -> dict:
 
 
 def blocked_cached_item(item: dict) -> bool:
-    source = str(item.get("source") or "")
-    title = str(item.get("title") or "").lower()
-    # Cached entries must still suit the Android-first target profile.
-    desktop_heavy = re.compile(
-        r"senior|full.?stack|engineer|developer|разработчик|программир|рефакторинг|"
-        r"figma|photoshop|illustrator|autocad|premiere.?pro|after.?effects|solidworks|revit|blender|3ds.?max|touch.?screen|interactive.?presentation|интерактивн.{0,12}(?:презентац|викторин)|"
-        r"php|python|java|c\+\+|qt|modbus|linux|opencart|wordpress|верстк|"
-        r"лендинг|дизайн.{0,12}(?:сайт|лендинг|макет)|конструкторск|черт[её]ж|"
-        r"мониторинг цен|парсинг|сбор с сайтов|rag|hmi|modbus|интернет-магазин|"
-        r"ии.?агент|ai.?agent|seo.?аудит|seo.?специалист|автоматизац.{0,20}(?:процесс|ии)|"
-        r"customer support|customer service|technical support|customer success|support specialist|"
-        r"account executive|sales director|regional sales|product director|"
-        r"customer service rep|communications professional|communications|"
-        r"marketing manager|head of|chief officer",
-        re.I,
-    )
-    if desktop_heavy.search(title):
-        return True
-    # FL.ru projects are not country-tagged; ask the customer about payout/eligibility instead.
-    if source == "FL.ru RSS":
-        return False
+    """Reject explicit country/market restrictions, not jobs requiring a computer."""
     geo = str(item.get("locationText") or "").lower().strip()
     if not geo:
         return False
@@ -61,9 +41,8 @@ def blocked_cached_item(item: dict) -> bool:
         return False
     if re.search(r"europe|european|emea", geo):
         return False
-    if re.search(r"not specified|location unknown|geography unknown|география не указана|уточни доступность кандидатов из россии|remote[- ]first|^remote$", geo):
+    if re.search(r"not specified|location unknown|geography unknown|география не указана|уточн|не подтвержд|remote[- ]first|^remote$", geo):
         return False
-    # A country, city, or market-specific cached role must not be resurrected.
     return True
 
 
@@ -73,8 +52,7 @@ def too_old_to_carry(item: dict, now: dt.datetime) -> bool:
     published = parse_time(item.get("publishedAt"))
     if published is None:
         return False
-    max_days = 7 if str(item.get("source") or "") == "FL.ru RSS" else 14
-    return (now - published).total_seconds() > max_days * 86400
+    return (now - published).total_seconds() > 14 * 86400
 
 
 def url_key(value: str) -> str:
@@ -167,7 +145,7 @@ def main() -> int:
     )
     current["attribution"] = (
         "Источники: Himalayas (himalayas.app), Jobicy (jobicy.com), Remote OK (remoteok.com), "
-        "We Work Remotely (weworkremotely.com), FL.ru (fl.ru). Открой оригинальную карточку вакансии перед откликом."
+        "We Work Remotely (weworkremotely.com). Открой оригинальную карточку вакансии перед откликом."
     )
 
     output_path = Path(args.output)

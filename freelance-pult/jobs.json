@@ -1,8 +1,9 @@
 {
   "schemaVersion": 1,
-  "source": "Публичная RSS-лента FL.ru",
+  "source": "Публичные API/RSS: Himalayas, Jobicy, Remote OK, We Work Remotely",
   "checkedAt": null,
-  "maxAgeNotice": "RSS не подтверждает, что заказ всё ещё открыт; проверь объявление перед откликом.",
+  "maxAgeNotice": "Серверный сборщик обновляет ленту каждые 30 минут. Проверь оригинальную карточку перед откликом.",
+  "attribution": "Himalayas (himalayas.app), Jobicy (jobicy.com), Remote OK (remoteok.com), We Work Remotely (weworkremotely.com).",
   "feeds": [],
   "stats": {
     "fetchedUnique": 0,
