@@ -298,6 +298,13 @@ def parse_fl_feed(feed_name: str, url: str) -> list[dict]:
         description = clean_text(child_text(node, "description") or child_text(node, "summary") or child_text(node, "content"))
         pub = child_text(node, "pubDate") or child_text(node, "published") or child_text(node, "updated") or child_text(node, "date")
         published_at = parse_date(pub)
+        if published_at:
+            try:
+                age_hours = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(published_at.replace("Z", "+00:00"))).total_seconds() / 3600
+                if age_hours > 24 * 14:
+                    continue
+            except (TypeError, ValueError):
+                pass
         price_min, price_max, budget_text = parse_money(title + "\n" + description)
         date_match = DATE_RE.search(title + "\n" + description)
         score, reasons, risks, matched, critical = score_item(title, description, published_at, price_max)
@@ -369,10 +376,35 @@ def parse_himalayas_search(name: str, params: dict[str, str]) -> list[dict]:
                 restriction_names.append(name_value)
             if code_value:
                 restriction_codes.append(code_value)
-        # Empty restrictions means worldwide; non-empty must include Russia.
+        # Empty location restrictions means worldwide; non-empty must include Russia.
         if restrictions and "RU" not in restriction_codes and not any("russia" in name.lower() or "росси" in name.lower() for name in restriction_names):
             continue
+
+        timezone_restrictions = job.get("timezoneRestrictions") or []
+        timezone_display = ""
+        if timezone_restrictions:
+            compatible_russia_timezones = []
+            parsed_offsets = []
+            for zone in timezone_restrictions:
+                text_zone = str(zone).strip().upper().replace("GMT", "UTC")
+                match_zone = re.search(r"(?:UTC)?\\s*([+-])\\s*(\\d{1,2})(?::(\\d{2}))?", text_zone)
+                if not match_zone:
+                    continue
+                sign = 1 if match_zone.group(1) == "+" else -1
+                offset = sign * (int(match_zone.group(2)) + (int(match_zone.group(3) or 0) / 60))
+                parsed_offsets.append(offset)
+                if 2 <= offset <= 12 and float(offset).is_integer():
+                    compatible_russia_timezones.append(str(zone))
+            if parsed_offsets and not compatible_russia_timezones:
+                continue
+            if not parsed_offsets:
+                timezone_display = "Часовой пояс ограничен: " + ", ".join(str(x) for x in timezone_restrictions[:4]) + " (проверь совместимость)"
+            elif len(timezone_restrictions) < 12:
+                timezone_display = "Временные зоны: " + ", ".join(compatible_russia_timezones[:5]) + " (уточни часовой пояс работодателя)"
+
         location_text = "Worldwide (географические ограничения не указаны)" if not restrictions else ", ".join(restriction_names)
+        if timezone_display:
+            location_text += "; " + timezone_display
 
         published_at = from_timestamp(job.get("pubDate"))
         expiry_at = from_timestamp(job.get("expiryDate"))
