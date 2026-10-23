@@ -45,7 +45,11 @@ HIMALAYAS_SEARCHES = [
 HIMALAYAS_API = "https://himalayas.app/jobs/api"
 JOBICY_API = "https://jobicy.com/api/jobs"
 REMOTEOK_API = "https://remoteok.com/api"
-WEWORKREMOTELY_RSS = "https://weworkremotely.com/remote-jobs.rss"
+WEWORKREMOTELY_FEEDS = [
+    ("We Work Remotely · все вакансии", "https://weworkremotely.com/remote-jobs.rss"),
+    ("We Work Remotely · продажи и маркетинг", "https://weworkremotely.com/categories/remote-sales-and-marketing-jobs.rss"),
+    ("We Work Remotely · прочие роли", "https://weworkremotely.com/categories/all-other-remote-jobs.rss"),
+]
 USER_AGENT = "FreelancePult/1.0 (+https://github.com/maximmiheyev28-ux/NovaAI-Android.)"
 MAX_ITEMS = 100
 MAX_DESCRIPTION = 1200
@@ -745,15 +749,17 @@ def main() -> int:
             feed_status.append({"name": source_name + " public API", "url": source_url, "ok": False, "error": message})
 
     # We Work Remotely explicitly permits public RSS reuse when listings link back to the source.
-    try:
-        rows = parse_wwr_feed()
-        all_items.extend(rows)
-        feed_status.append({"name": "We Work Remotely public RSS", "url": WEWORKREMOTELY_RSS, "ok": True, "items": len(rows), "source": "We Work Remotely public RSS"})
-        successes += 1
-    except (urllib.error.URLError, urllib.error.HTTPError, ET.ParseError, TimeoutError, OSError, RuntimeError, ValueError) as exc:
-        message = f"We Work Remotely public RSS: {type(exc).__name__}: {str(exc)[:180]}"
-        errors.append(message)
-        feed_status.append({"name": "We Work Remotely public RSS", "url": WEWORKREMOTELY_RSS, "ok": False, "error": message})
+    for wwr_feed_name, wwr_feed_url in WEWORKREMOTELY_FEEDS:
+        try:
+            rows = parse_wwr_feed(wwr_feed_url)
+            all_items.extend(rows)
+            feed_status.append({"name": wwr_feed_name, "url": wwr_feed_url, "ok": True, "items": len(rows), "source": "We Work Remotely public RSS"})
+            successes += 1
+        except (urllib.error.URLError, urllib.error.HTTPError, ET.ParseError, TimeoutError, OSError, RuntimeError, ValueError) as exc:
+            message = f"{wwr_feed_name}: {type(exc).__name__}: {str(exc)[:180]}"
+            errors.append(message)
+            feed_status.append({"name": wwr_feed_name, "url": wwr_feed_url, "ok": False, "error": message})
+        time.sleep(0.25)
 
     # FL.ru advertises an RSS subscription, but its endpoints may refuse cloud-runner requests.
     # A 403 is recorded as a source limitation, never bypassed.
