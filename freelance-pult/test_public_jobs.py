@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from collect_public_jobs import build_auto_package, is_fresh_for_auto_package, job_geo_eligibility, parse_wwr_feed, salary_label, score_item
-from collect_kwork import parse_kwork_html, parse_kwork_pages
+from collect_kwork import fetch_page, parse_kwork_html, parse_kwork_pages
 from merge_jobs_feed import blocked_cached_item, remove_stale_auto_package, too_old_to_carry
 from notify_telegram import select_new_items
 
@@ -223,6 +223,10 @@ class CollectorPolicyTests(unittest.TestCase):
         self.assertEqual(len(payload["items"]), 3)
         self.assertTrue(all(item["executionCategory"] == "text" for item in payload["items"]))
         self.assertTrue(all(item["deliverable"] == "готовый текст" for item in payload["items"]))
+
+    def test_kwork_automatic_network_fetch_is_disabled(self):
+        with self.assertRaisesRegex(RuntimeError, "Automated Kwork collection is disabled"):
+            fetch_page()
 
     def test_kwork_parser_refuses_empty_page(self):
         with self.assertRaises(ValueError):
