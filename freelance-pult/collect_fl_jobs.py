@@ -471,7 +471,7 @@ def job_geo_eligibility(value: Any) -> tuple[bool, str]:
     if re.search(r"europe|european|emea", lower):
         return True, geo + " — уточни, допускаются ли кандидаты, проживающие в РФ."
     # Generic "remote/unknown" location remains a lead with a strong verification note.
-    if re.fullmatch(r"(?:fully\s+)?remote|remote[- ]first|not specified|location not specified|location unknown|гепография не указана|география не указана|уточнить доступность|any location|global remote", lower.strip()):
+    if re.fullmatch(r"(?:fully\s+)?remote|remote[- ]first|not specified|location not specified|location unknown|география не указана|география не указана|уточнить доступность|any location|global remote", lower.strip()):
         return True, geo + " — проверь страновые ограничения перед откликом."
     # A specific country/city/market is not treated as eligible unless included above.
     return False, geo
