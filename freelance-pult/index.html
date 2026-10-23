@@ -25,11 +25,12 @@ input,select,textarea{width:100%;padding:11px 12px;border-radius:11px;border:1px
 <nav class="nav"><button class="active" data-tab="home">Обзор</button><button data-tab="orders">Заказы</button><button data-tab="reply">Отклик</button><button data-tab="money">Деньги</button><button data-tab="more">Данные</button></nav>
 <section id="p-home" class="page active">
 <div class="heading"><h2>Быстрый старт</h2></div><div class="actions"><a class="btn secondary" href="https://kwork.ru/projects" target="_blank" rel="noopener">Найти заказ Kwork ↗</a><button onclick="go('reply')">Составить отклик</button></div>
-<div class="heading"><h2>Свежие заказы Kwork</h2><span id="jobsFeedStatus" class="badge">только Kwork</span></div>
-<div class="card"><p>Лента загружает публичные проекты только с Kwork примерно каждые 30 минут. Я рекомендую карточки, где основной результат можно подготовить инструментами ChatGPT: текст, перевод, документы, таблицы, исследование, код или изображение. Не рекомендую задания, которые требуют звонков, рассылок, физических действий, входа в сторонний аккаунт или исходников в недоступной программе. Это предварительная оценка возможности выполнить работу, а не гарантия найма или оплаты.</p>
-<div class="actions"><a class="btn" href="https://kwork.ru/projects" target="_blank" rel="noopener">Открыть заказы Kwork ↗</a><button class="secondary" onclick="refreshJobsFeed(true)">Проверить ленту</button></div>
-<div id="jobsAlertsStatus" class="meta" style="margin-top:6px">Сервер собирает первые 5 публичных страниц общего списка Kwork каждые 30 минут; авторизация и обход ограничений не используются. Уведомления браузера работают, пока панель открыта. Для уведомлений при закрытом сайте нужны секреты Telegram в GitHub Actions.</div><div class="card" style="margin-top:10px"><label style="display:flex;gap:10px;align-items:flex-start"><input id="autoPackToggle" type="checkbox" style="width:20px;height:20px;flex:0 0 auto" onchange="toggleAutoPack(this.checked)"><span><b>Автоматически готовить пакеты</b><br><small class="muted">Для новых подходящих заказов создать локальную карточку, черновик отклика и план выполнения. Ничего не отправляется заказчику.</small></span></label><div id="autoPackStatus" class="meta" style="margin-top:8px"></div></div>
-<div id="jobsFeedMeta" class="meta" style="margin-top:10px"></div><div id="liveJobs" class="list" style="margin-top:10px"><div class="empty">Загружаю последние объявления…</div></div></div>
+<div class="heading"><h2>Проекты для работы</h2><span id="jobsFeedStatus" class="badge">ручной выбор</span></div>
+<div class="card"><p><b>Безопасный режим работы.</b> Автоматический сбор проектов, отклики и отправка результатов через бота отключены: действующие условия Kwork запрещают роботизированный сбор данных и несанкционированное ПО для автоматизации сервиса. Выбирай подходящее объявление в официальном интерфейсе Kwork, затем внеси его название, ссылку и требования в форму ниже.</p>
+<div class="actions"><a class="btn" href="https://kwork.ru/projects" target="_blank" rel="noopener">Открыть все проекты Kwork ↗</a><button class="secondary" onclick="go('orders');formOpen()">＋ Добавить выбранный проект</button></div>
+<div id="jobsAlertsStatus" class="meta" style="margin-top:10px">Рабочий цикл: вручную выбрать задание → передать требования в ChatGPT → подготовить результат → проверить по ТЗ → выполнить вторую независимую проверку → только после этого сдать через Kwork.</div>
+<div id="jobsFeedMeta" class="meta" style="margin-top:8px">Автоматическая лента остановлена; ранее сохранённые объявления не считаются актуальными.</div>
+<div id="liveJobs" class="list" style="margin-top:10px"><div class="empty">Новые проекты не загружаются автоматически. Открой Kwork и выбери конкретное задание.</div></div></div>
 <div class="heading"><h2>Недавние заказы</h2><button class="secondary small" onclick="go('orders')">Все →</button></div><div id="recent" class="list"></div>
 <div class="heading"><h2>Рабочий автопроцесс</h2><span class="badge">на сегодня</span></div>
 <div class="card"><p>Панель не обходит сайты в фоне и не отправляет отклики автоматически. Этот блок ускоряет ежедневный процесс и сохраняет отметки на этом устройстве.</p>
@@ -260,26 +261,13 @@ function renderLiveJobs(){
 }
 async function refreshJobsFeed(manual=false){
  const status=document.getElementById("jobsFeedStatus");
- if(manual&&status)status.textContent="обновление…";
- const urls=[JOBS_FEED_URL,"./jobs.json"];
- let lastError=null;
- for(const base of urls){
-  try{
-   const sep=base.includes("?")?"&":"?";
-   const resp=await fetch(base+sep+"v="+Date.now(),{cache:"no-store",headers:{"Accept":"application/json"}});
-   if(!resp.ok)throw new Error("HTTP "+resp.status);
-   const data=await resp.json();
-   if(!data||!Array.isArray(data.items))throw new Error("invalid feed JSON");
-   jobsFeedData=data;
-   jobsFeedItems=data.items.filter(j=>{if(!j||!j.id||!j.title||j.recommendation!=="recommend"||!safeurl(j.link)||!(/(^|\.)kwork\.ru$/i.test(new URL(safeurl(j.link)).hostname))||String(j.source||"").toLowerCase()!=="kwork"||j.criticalRisk||(Number(j.score)||0)<50)return false;if(j.publishedAt){const age=(Date.now()-new Date(j.publishedAt).getTime())/3600000;if(Number.isFinite(age)&&age>24*14)return false}return true}).sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0));
-   await notifyNewJobs(jobsFeedItems);
-   try{autoPrepareNewJobs(jobsFeedItems)}catch(e){const status=document.getElementById("autoPackStatus");if(status)status.textContent="Автоподготовка не сработала; используй кнопку «Пакет + план» на карточке."}
-   renderLiveJobs();renderJobsAlerts();renderAutoPackControl();return;
-  }catch(e){lastError=e}
- }
- if(status)status.textContent="ошибка загрузки";
- if(!jobsFeedData){const meta=document.getElementById("jobsFeedMeta");if(meta)meta.textContent="Не удалось загрузить RSS-выборку: "+String(lastError||"неизвестная ошибка");}
- renderLiveJobs();
+ if(status)status.textContent="ручной выбор";
+ const alerts=document.getElementById("jobsAlertsStatus");
+ if(alerts)alerts.textContent="Рабочий цикл: вручную выбрать задание → передать требования в ChatGPT → подготовить результат → проверить по ТЗ → выполнить вторую независимую проверку → только после этого сдать через Kwork.";
+ const meta=document.getElementById("jobsFeedMeta");
+ if(meta)meta.textContent="Автоматический сбор Kwork отключён, а не просто временно недоступен. Не полагайся на старые объявления.";
+ const live=document.getElementById("liveJobs");
+ if(live)live.innerHTML='<div class="empty">Открой Kwork, выбери актуальный проект и добавь его через форму ниже. Кнопка «Передать в ChatGPT» создаёт структурированное задание.</div>';
 }
 async function transferToChatGPT(kind,id){
  let item=null,title="",description="",url="",budget="",due="",source="";
