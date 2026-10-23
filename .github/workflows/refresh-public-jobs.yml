@@ -1,4 +1,4 @@
-name: Refresh public remote jobs
+name: Refresh Kwork project recommendations
 
 on:
   schedule:
@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - ".github/workflows/refresh-public-jobs.yml"
+      - "freelance-pult/collect_kwork.py"
       - "freelance-pult/collect_public_jobs.py"
       - "freelance-pult/merge_jobs_feed.py"
       - "freelance-pult/notify_telegram.py"
@@ -23,7 +24,7 @@ concurrency:
 
 jobs:
   collect:
-    name: Collect and publish public jobs
+    name: Collect and publish Kwork recommendations
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -41,8 +42,8 @@ jobs:
             echo "No previous snapshot; this is the first publish."
           fi
 
-      - name: Collect and rank public jobs
-        run: python3 freelance-pult/collect_public_jobs.py --output freelance-pult/jobs.json
+      - name: Fetch public Kwork projects and recommend executable tasks
+        run: python3 freelance-pult/collect_kwork.py --output freelance-pult/jobs.json --previous /tmp/previous-jobs.json
 
       - name: Preserve recent results if sources are temporarily unavailable
         run: python3 freelance-pult/merge_jobs_feed.py --current freelance-pult/jobs.json --previous /tmp/previous-jobs.json --output freelance-pult/jobs.json --cache-hours 36
@@ -72,7 +73,7 @@ jobs:
         shell: bash
         run: |
           if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
-            echo "Telegram is not configured; feed published but no phone notification was sent."
+            echo "Telegram is not configured; Kwork feed published but no phone notification was sent."
             exit 0
           fi
           python3 /tmp/notify_telegram.py --previous /tmp/previous-jobs.json --current /tmp/current-jobs.json

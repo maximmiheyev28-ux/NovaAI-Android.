@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Compile the Python collector
-        run: python3 -m py_compile freelance-pult/collect_public_jobs.py freelance-pult/merge_jobs_feed.py freelance-pult/notify_telegram.py
+        run: python3 -m py_compile freelance-pult/collect_kwork.py freelance-pult/collect_public_jobs.py freelance-pult/merge_jobs_feed.py freelance-pult/notify_telegram.py
 
       - name: Check inline JavaScript syntax
         shell: bash
