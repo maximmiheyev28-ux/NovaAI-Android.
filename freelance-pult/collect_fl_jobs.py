@@ -293,6 +293,7 @@ def parse_himalayas_search(name: str, params: dict[str, str]) -> list[dict]:
     rows = payload.get("jobs", [])
     if not isinstance(rows, list):
         raise ValueError("Response has no jobs array")
+    print("Himalayas debug:", json.dumps({"url": url, "payload_keys": sorted(payload.keys()), "raw_jobs": len(rows)}, ensure_ascii=False))
     records: list[dict] = []
     for job in rows:
         if not isinstance(job, dict):
