@@ -1,0 +1,46 @@
+name: Refresh FL.ru public RSS jobs
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/refresh-fl-jobs.yml"
+      - "freelance-pult/collect_fl_jobs.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-fl-jobs
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    name: Collect and publish public RSS feed
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Fetch and rank FL.ru RSS items
+        run: python3 freelance-pult/collect_fl_jobs.py --output freelance-pult/jobs.json
+
+      - name: Publish JSON feed to jobs-feed branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp freelance-pult/jobs.json /tmp/jobs.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan jobs-feed
+          git rm -rf .
+          mkdir -p freelance-pult
+          cp /tmp/jobs.json freelance-pult/jobs.json
+          git add freelance-pult/jobs.json
+          git commit -m "Refresh FL.ru RSS jobs feed"
+          git push --force origin jobs-feed
