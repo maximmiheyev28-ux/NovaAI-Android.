@@ -320,8 +320,10 @@ WWR_RESTRICTED_RE = re.compile(
 )
 
 
-def parse_wwr_feed(url: str = WEWORKREMOTELY_RSS) -> list[dict]:
+def parse_wwr_feed(url: str | None = None) -> list[dict]:
     """Parse We Work Remotely public RSS with required source attribution."""
+    if url is None:
+        url = WEWORKREMOTELY_FEEDS[0][1]
     root = ET.fromstring(read_url(url, "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5"))
     nodes = [node for node in root.iter() if local_name(node.tag) in ("item", "entry")]
     records: list[dict] = []
