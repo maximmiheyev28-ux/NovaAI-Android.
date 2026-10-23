@@ -43,6 +43,8 @@ HIMALAYAS_SEARCHES = [
     ("Himalayas · свежие вакансии · пакет 10", {"limit": "20", "offset": "180"}),
 ]
 HIMALAYAS_API = "https://himalayas.app/jobs/api"
+JOBICY_API = "https://jobicy.com/api/v2/remote-jobs"
+REMOTEOK_API = "https://remoteok.com/api"
 USER_AGENT = "FreelancePult/1.0 (+https://github.com/maximmiheyev28-ux/NovaAI-Android.)"
 MAX_ITEMS = 100
 MAX_DESCRIPTION = 1200
@@ -447,6 +449,156 @@ def parse_himalayas_search(name: str, params: dict[str, str]) -> list[dict]:
     return records
 
 
+
+def job_geo_eligibility(value: Any) -> tuple[bool, str]:
+    """Exclude clearly country-locked roles; visibly flag ambiguous regions."""
+    geo = clean_text(str(value or ""))
+    lower = geo.lower()
+    if not geo:
+        return True, "География не указана — уточни доступность кандидатов из России."
+    if re.search(r"worldwide|anywhere|global|all countries|world wide|весь мир|по всему миру|remote from anywhere|любой страны", lower):
+        return True, geo + " (всё равно уточни доступность из РФ)"
+    if re.search(r"russia|росси|\\bcis\\b|снг", lower):
+        return True, geo
+    if re.search(r"europe|european|\\bemea\\b", lower):
+        return True, geo + " — уточни, допускаются ли кандидаты, проживающие в РФ."
+    if re.search(r"united states|\\busa\\b|\\bus only\\b|united kingdom|\\buk only\\b|canada only|australia only|india only|philippines only|latin america|north america only|singapore only", lower):
+        return False, geo
+    return True, geo + " — проверь ограничения по стране перед откликом."
+
+
+def make_remote_record(
+    *, identifier: Any, title: str, link: str, description: str, published_at: str,
+    source: str, company: str = "", geo: str = "", salary_min: Any = None,
+    salary_max: Any = None, currency: str = "", salary_period: str = "annual",
+    employment: str = "", seniority: str = "", categories: list[str] | None = None,
+) -> dict | None:
+    title = clean_text(title)
+    description = clean_text(description)
+    parsed = urlparse(link)
+    allowed_hosts = {
+        "Jobicy": ("jobicy.com",),
+        "Remote OK": ("remoteok.com",),
+    }
+    host = (parsed.hostname or "").lower()
+    if not title or parsed.scheme not in ("http", "https") or not any(host == h or host.endswith("." + h) for h in allowed_hosts[source]):
+        return None
+
+    geo_ok, geo_text = job_geo_eligibility(geo)
+    if not geo_ok:
+        return None
+    pub_raw = str(published_at or "")
+    if pub_raw.isdigit():
+        published = from_timestamp(float(pub_raw))
+    else:
+        published = parse_date(pub_raw)
+    if published:
+        try:
+            if (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(published.replace("Z", "+00:00"))).total_seconds() > 14 * 86400:
+                return None
+        except (TypeError, ValueError):
+            pass
+
+    salary_job = {
+        "minSalary": salary_min, "maxSalary": salary_max,
+        "currency": currency, "salaryPeriod": salary_period or "annual",
+    }
+    low, high, salary_text = salary_label(salary_job)
+    score, reasons, risks, matched, critical = score_item(title, description, published, high)
+    if not matched:
+        return None
+    digest = hashlib.sha256(str(identifier or link).encode("utf-8")).hexdigest()[:16]
+    return {
+        "id": digest, "title": title[:180], "link": link,
+        "description": description[:MAX_DESCRIPTION], "publishedAt": published,
+        "source": source, "feedName": source + " public API", "score": score,
+        "fitReasons": reasons, "riskFlags": risks, "criticalRisk": critical,
+        "hasRelevantKeywords": matched, "budgetMin": low, "budgetMax": high,
+        "budgetText": salary_text, "currency": str(currency or "").upper(),
+        "deadlineHint": "", "companyName": clean_text(company),
+        "employmentType": clean_text(employment), "seniority": clean_text(seniority),
+        "categories": (categories or [])[:5], "locationText": geo_text,
+        "paymentCheck": (
+            "Возможность найма резидента России и выплаты на российскую карту не подтверждена источником. "
+            "Уточни географические ограничения, валюту и способ оплаты до отклика."
+        ),
+    }
+
+
+def parse_jobicy_feed() -> list[dict]:
+    url = JOBICY_API + "?count=200"
+    payload = json.loads(read_url(url).decode("utf-8"))
+    if payload.get("success") is False:
+        raise ValueError(str(payload.get("error") or "Jobicy API reported failure"))
+    rows = payload.get("jobs")
+    if not isinstance(rows, list):
+        raise ValueError("Jobicy response does not include a jobs array")
+    records = []
+    for job in rows:
+        if not isinstance(job, dict):
+            continue
+        job_type = job.get("jobType") or []
+        industry = job.get("jobIndustry") or []
+        records_item = make_remote_record(
+            identifier=job.get("id"),
+            title=str(job.get("jobTitle") or ""),
+            link=str(job.get("url") or ""),
+            description=str(job.get("jobDescription") or job.get("jobExcerpt") or ""),
+            published_at=str(job.get("pubDate") or ""),
+            source="Jobicy",
+            company=str(job.get("companyName") or ""),
+            geo=str(job.get("jobGeo") or ""),
+            salary_min=job.get("salaryMin"),
+            salary_max=job.get("salaryMax"),
+            currency=str(job.get("salaryCurrency") or ""),
+            salary_period=str(job.get("salaryPeriod") or "yearly"),
+            employment=", ".join(str(x) for x in job_type) if isinstance(job_type, list) else str(job_type),
+            seniority=str(job.get("jobLevel") or ""),
+            categories=[str(x) for x in industry[:5]] if isinstance(industry, list) else [str(industry)],
+        )
+        if records_item:
+            records.append(records_item)
+    return records
+
+
+def parse_remoteok_feed() -> list[dict]:
+    payload = json.loads(read_url(REMOTEOK_API).decode("utf-8"))
+    if not isinstance(payload, list):
+        raise ValueError("Remote OK response was not a JSON array")
+    records = []
+    for job in payload:
+        if not isinstance(job, dict):
+            continue
+        # The first Remote OK array item is a legal/source notice, not a job.
+        title = str(job.get("position") or job.get("title") or "")
+        link = str(job.get("url") or "")
+        if not title or not link:
+            continue
+        tags = job.get("tags") or []
+        if not isinstance(tags, list):
+            tags = []
+        records_item = make_remote_record(
+            identifier=job.get("id"),
+            title=title,
+            link=link,
+            description=str(job.get("description") or ""),
+            published_at=str(job.get("date") or job.get("publication_date") or ""),
+            source="Remote OK",
+            company=str(job.get("company") or job.get("company_name") or ""),
+            geo=str(job.get("location") or job.get("geo") or ""),
+            salary_min=job.get("salary_min"),
+            salary_max=job.get("salary_max"),
+            currency=str(job.get("salary_currency") or job.get("currency") or ""),
+            salary_period=str(job.get("salary_period") or "annual"),
+            employment=str(job.get("job_type") or ""),
+            seniority="",
+            categories=[str(x) for x in tags[:5]],
+        )
+        if records_item:
+            records.append(records_item)
+    return records
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default="freelance-pult/jobs.json")
@@ -472,6 +624,21 @@ def main() -> int:
             errors.append(message)
             feed_status.append({"name": name, "url": HIMALAYAS_API, "ok": False, "error": message})
         time.sleep(0.3)
+
+    # Public Jobicy and Remote OK feeds are checked once per scheduled pass.
+    for source_name, fetcher, source_url in [
+        ("Jobicy", parse_jobicy_feed, JOBICY_API + "?count=200"),
+        ("Remote OK", parse_remoteok_feed, REMOTEOK_API),
+    ]:
+        try:
+            rows = fetcher()
+            all_items.extend(rows)
+            feed_status.append({"name": source_name + " public API", "url": source_url, "ok": True, "items": len(rows), "source": source_name + " public API"})
+            successes += 1
+        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, TimeoutError, OSError, RuntimeError, ValueError, TypeError) as exc:
+            message = f"{source_name} public API: {type(exc).__name__}: {str(exc)[:180]}"
+            errors.append(message)
+            feed_status.append({"name": source_name + " public API", "url": source_url, "ok": False, "error": message})
 
     # FL.ru advertises an RSS subscription, but its endpoints may refuse cloud-runner requests.
     # A 403 is recorded as a source limitation, never bypassed.
