@@ -45,7 +45,7 @@ input,select,textarea{width:100%;padding:11px 12px;border-radius:11px;border:1px
 <div class="card"><h3>🛡️ Не теряй деньги</h3><p>Работай через безопасную сделку площадки, когда это доступно. Не плати за «активацию вывода», не переходи к подозрительным ссылкам и не сообщай коды из SMS, пароль или CVV.</p></div>
 </section>
 <section id="p-orders" class="page"><div class="heading"><div><h2>Мои заказы</h2><div class="meta">Автосохранение на устройстве</div></div><button onclick="focusQuickLink()">＋ Ссылка</button></div>
-<div id="formbox" class="card hide"><h3 id="formtitle">Добавить лид</h3><form id="orderform"><input id="oid" type="hidden"><input id="title" type="hidden">
+<div id="formbox" class="card hide"><h3 id="formtitle">Добавить лид</h3><form id="orderform"><input id="oid" type="hidden"><div id="titleEditField" class="field hide"><label>Название (можно изменить после анализа ссылки)</label><input id="title" maxlength="150" placeholder="Название, предложенное после изучения объявления"></div>
 <div class="row"><div class="field"><label>Площадка</label><select id="platform"><option>Kwork</option><option>Himalayas</option><option>Jobicy</option><option>Remote OK</option><option>We Work Remotely</option><option>Прямой клиент</option><option>Другое</option></select></div><div class="field"><label>Статус</label><select id="status"><option value="new">Новый лид</option><option value="sent">Отклик отправлен</option><option value="talk">Переговоры</option><option value="active">В работе</option><option value="wait">Ждёт оплату</option><option value="paid">Оплачен</option><option value="lost">Не состоялся</option></select></div></div>
 <div class="row"><div class="field"><label>Сумма, ₽</label><input id="price" type="number" min="0" step="1" placeholder="1000"></div><div class="field"><label>Срок</label><input id="due" type="text" placeholder="3 дня или 2026-10-25"></div></div>
 <div class="field"><label>Ссылка на проект *</label><input id="link" type="url" required placeholder="https://kwork.ru/projects/123456/view"></div><div class="field"><label>Требования / заметки</label><textarea id="notes" placeholder="Объём, формат, что согласовано"></textarea></div>
@@ -90,6 +90,7 @@ function go(t){document.querySelectorAll(".page").forEach(e=>e.classList.toggle(
 function formOpen(o=null){
  document.getElementById("formbox").classList.remove("hide");
  document.getElementById("formtitle").textContent=o?"Изменить заказ":"Добавить лид";
+ document.getElementById("titleEditField").classList.toggle("hide",!o);
  const vals={oid:o?.id||"",title:o?.title||"",platform:o?.platform||"Другое",status:o?.status||"new",price:o?.price||"",due:o?.due||"",link:o?.link||"",notes:o?.notes||""};
  Object.entries(vals).forEach(([k,v])=>document.getElementById(k).value=v);
  document.getElementById("qaFirst").checked=!!o?.qaFirst;
