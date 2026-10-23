@@ -42,6 +42,8 @@ def blocked_cached_item(item: dict) -> bool:
         host = ""
     if source != "kwork" or not (host == "kwork.ru" or host.endswith(".kwork.ru")):
         return True
+    # Kwork project entries are not geolocated remote-job postings.
+    return False
 
     geo = str(item.get("locationText") or "").lower().strip()
     if not geo:
