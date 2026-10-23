@@ -387,7 +387,7 @@ def parse_himalayas_search(name: str, params: dict[str, str]) -> list[dict]:
             parsed_offsets = []
             for zone in timezone_restrictions:
                 text_zone = str(zone).strip().upper().replace("GMT", "UTC")
-                match_zone = re.search(r"(?:UTC)?\\s*([+-])\\s*(\\d{1,2})(?::(\\d{2}))?", text_zone)
+                match_zone = re.search(r"(?:UTC)?\s*([+-])\s*(\d{1,2})(?::(\d{2}))?", text_zone)
                 if not match_zone:
                     continue
                 sign = 1 if match_zone.group(1) == "+" else -1
