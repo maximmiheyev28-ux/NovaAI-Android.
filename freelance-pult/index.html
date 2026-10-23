@@ -396,5 +396,5 @@ function draftFeedJob(id){
 }
 
 function renderAll(){renderStats();renderHome();renderOrders();renderDrafts();renderMoney();renderDaily();renderPayoutChecks();renderLiveJobs()}document.getElementById("services").textContent=serviceText;function copyServices(){navigator.clipboard.writeText(serviceText).then(()=>alert("Скопировано.")).catch(()=>prompt("Скопируй тексты услуг",serviceText))}
-loadProfile();renderAll();renderJobsAlerts();renderAutoPackControl();refreshJobsFeed(false);if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").then(()=>{}).catch(()=>{});setInterval(()=>{if(!document.hidden)refreshJobsFeed(false)},30*60*1000);
+loadProfile();renderAll();renderJobsAlerts();renderAutoPackControl();refreshJobsFeed(false);if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").then(()=>{}).catch(()=>{});
 </script></body></html>
