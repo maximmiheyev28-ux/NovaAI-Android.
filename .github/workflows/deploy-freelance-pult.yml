@@ -42,5 +42,8 @@ jobs:
           PY
           node --check /tmp/freelance-pult-inline.js
 
+      - name: Test collector policy and cached-feed filters
+        run: python3 -m unittest discover -s freelance-pult -p 'test_*.py'
+
       - name: Validate bundled JSON
         run: python3 -m json.tool freelance-pult/jobs.json >/dev/null
