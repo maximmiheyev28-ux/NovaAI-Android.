@@ -9,7 +9,7 @@ from collect_public_jobs import clean_text,parse_money,score_item,now_iso
 
 URL="https://kwork.ru/projects"
 UA="FreelancePult/1.0 (+https://github.com/maximmiheyev28-ux/NovaAI-Android.)"
-PATH_RE=re.compile(r"^/projects/(\d+)/view/?$",re.I)
+PATH_RE=re.compile(r"^/projects/(\d+)(?:/view)?/?$",re.I)
 ABILITY=[
 ("text",re.compile(r"текст|копирайт|стать[яи]|рерайт|описан.{0,16}(?:товар|услуг|карточк)|контент|перевод|редакт|коррект|набор текста|copywrit|proofread|translation|article|blog post|rewrite|product description",re.I)),
 ("documents",re.compile(r"документ|word|docx|pdf|презентац|pptx|слайд|конспект|сводк|отч[её]т|резюме|summary|report writing|оформить файл",re.I)),
@@ -55,7 +55,7 @@ def links(p):
   href=a.attrs.get("href","").strip()
   if not href:continue
   u=urlsplit(urljoin(URL,href));host=(u.hostname or "").lower();m=PATH_RE.fullmatch(u.path);title=clean_text(a.text()).replace("\n"," ").strip() or a.attrs.get("title","").strip()
-  if m and u.scheme=="https" and (host=="kwork.ru" or host.endswith(".kwork.ru")) and title and title.lower() not in {"подробнее","показать полностью"}:out.append((m.group(1),urlunsplit(("https","kwork.ru",u.path.rstrip("/"),"","")),a,title[:200]))
+  if m and u.scheme in {"https","http"} and (host=="kwork.ru" or host.endswith(".kwork.ru")) and title and title.lower() not in {"подробнее","показать полностью"}:out.append((m.group(1),"https://kwork.ru/projects/"+m.group(1)+"/view",a,title[:200]))
  return out
 def card(a,title):
  mark=re.compile(r"осталось\s*:|предложени[йя]\s*:|покупатель\s*:|желаемый бюджет|цена\s*(?:до)?\s*:|₽|руб",re.I); c=[];n=a.parent;d=0
@@ -93,7 +93,11 @@ def classify(title,t):
  return c,reason,deliver
 def parse_kwork_html(page,checked_at=None,previous=None):
  stamp=checked_at or now_iso();now=dt.datetime.fromisoformat(stamp.replace("Z","+00:00"));p=Parser();p.feed(page);p.close();found=links(p)
- if not found:raise ValueError("Kwork public page has no project links; feed left unchanged.")
+ if not found:
+  page_title=re.search(r"<title[^>]*>(.*?)</title>",page,re.I|re.S)
+  hrefs=re.findall(r"""href\s*=\s*["']([^"']+)["']""",page,re.I)
+  project_paths=[urlsplit(h).path for h in hrefs if "project" in h.lower() or "want" in h.lower()]
+  raise ValueError("Kwork public page has no parsed project links; bytes="+str(len(page))+"; title="+clean_text(page_title.group(1))[:100].__repr__()+"; pathMentions="+str(page.lower().count("/projects/"))+"; hrefSamples="+repr(project_paths[:8]))
  prev={str(i.get("link","")).rstrip("/"):i for i in (previous or {}).get("items",[]) if isinstance(i,dict)}
  items={};skip=0;risks_n=0
  for pid,url,a,title in found:
