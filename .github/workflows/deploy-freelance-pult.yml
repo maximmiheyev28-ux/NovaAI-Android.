@@ -34,7 +34,7 @@ jobs:
           from pathlib import Path
           import re
           source = Path("freelance-pult/index.html").read_text(encoding="utf-8")
-          match = re.search(r"<script>([\\s\\S]*?)</script>", source)
+          match = re.search(r"<script>([\s\S]*?)</script>", source)
           if not match:
               raise SystemExit("No inline script found")
           Path("/tmp/freelance-pult-inline.js").write_text(match.group(1), encoding="utf-8")
