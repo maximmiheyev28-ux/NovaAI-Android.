@@ -141,6 +141,12 @@ def main() -> int:
         str(item.get("publishedAt") or ""),
     ), reverse=True)
     merged = merged[:100]
+    # Do not retain generated drafts/plans once their source listing is older than 72 hours.
+    for item in merged:
+        if "autoPackage" in item:
+            published = parse_time(item.get("publishedAt"))
+            if published is None or (now - published).total_seconds() < 0 or (now - published).total_seconds() > 72 * 3600:
+                item.pop("autoPackage", None)
 
     stats = current.get("stats") or {}
     stats["freshCandidates"] = len(current_items)
@@ -154,7 +160,7 @@ def main() -> int:
     )
     current["attribution"] = (
         "Источники: Himalayas (himalayas.app), Jobicy (jobicy.com), Remote OK (remoteok.com), "
-        "FL.ru (fl.ru). Открой оригинальную карточку вакансии перед откликом."
+        "We Work Remotely (weworkremotely.com), FL.ru (fl.ru). Открой оригинальную карточку вакансии перед откликом."
     )
 
     output_path = Path(args.output)
