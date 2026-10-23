@@ -297,11 +297,17 @@ def read_url(url: str, accept: str = "application/json") -> bytes:
         return response.read(5_000_000)
 
 
+WWR_COUNTRY_NAMES = (
+    r"(?:u\.?s\.?a?\.?|united states|canada|u\.?k\.?|united kingdom|"
+    r"australia|new zealand|germany|france|spain|italy|netherlands|ireland|"
+    r"singapore|japan|india|poland|portugal)"
+)
 WWR_RESTRICTED_RE = re.compile(
-    r"\b(?:remote\s*(?:job|role|position)?\s*[-:]\s*|only\s+(?:applicants?|candidates?|residents?|employees?)\s+(?:located|based|living|residing|from)\s+in\s+|"
-    r"(?:must|needs? to|required to)\s+(?:be\s+)?(?:located|based|resident|residing|live|living)\s+in\s+|"
-    r"(?:applicants?|candidates?)\s+(?:must|required to|need to)\s+(?:be\s+)?(?:located|based|resident|residing|living)\s+in\s+|"
-    r"(?:u\.?s\.?a?\.?|united states|canada|u\.?k\.?|united kingdom|australia|new zealand|germany|france|spain|italy|netherlands|ireland|singapore|japan|india|poland|portugal)\s+only\b)",
+    r"\b(?:remote\s*(?:job|role|position)?\s*[-:(]\s*(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
+    r"only\s+(?:applicants?|candidates?|residents?|employees?)\s+(?:located|based|living|residing|from)\s+in\s+(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
+    r"(?:must|needs? to|required to)\s+(?:be\s+)?(?:located|based|resident|residing|live|living)\s+in\s+(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
+    r"(?:applicants?|candidates?)\s+(?:must|required to|need to)\s+(?:be\s+)?(?:located|based|resident|residing|living)\s+in\s+(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
+    + WWR_COUNTRY_NAMES + r"\s+only\b)",
     re.I,
 )
 
