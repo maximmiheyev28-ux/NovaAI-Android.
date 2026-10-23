@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from collect_fl_jobs import job_geo_eligibility, salary_label, score_item
-from merge_jobs_feed import blocked_cached_item
+from merge_jobs_feed import blocked_cached_item, too_old_to_carry
 
 
 class CollectorPolicyTests(unittest.TestCase):
@@ -41,6 +41,17 @@ class CollectorPolicyTests(unittest.TestCase):
         old_score = score_item("Литературный редактор", "Редактура текста и правка рукописи.", old.isoformat().replace("+00:00", "Z"), 0)[0]
         self.assertGreater(fresh_score, old_score)
         self.assertLess(old_score, 50)
+
+    def test_cached_project_staleness_window_is_shorter_than_remote_role_window(self):
+        now = datetime(2026, 10, 23, 16, 0, tzinfo=timezone.utc)
+        old_project = {"source": "FL.ru RSS", "publishedAt": "2026-10-15T06:17:25Z"}
+        recent_project = {"source": "FL.ru RSS", "publishedAt": "2026-10-19T14:33:33Z"}
+        older_remote_role = {"source": "Jobicy", "publishedAt": "2026-10-15T06:17:25Z"}
+        too_old_remote_role = {"source": "Jobicy", "publishedAt": "2026-10-01T06:17:25Z"}
+        self.assertTrue(too_old_to_carry(old_project, now))
+        self.assertFalse(too_old_to_carry(recent_project, now))
+        self.assertFalse(too_old_to_carry(older_remote_role, now))
+        self.assertTrue(too_old_to_carry(too_old_remote_role, now))
 
     def test_cached_country_specific_and_desktop_jobs_are_removed(self):
         self.assertTrue(blocked_cached_item({"source": "Jobicy", "title": "Content writer", "locationText": "UK"}))
