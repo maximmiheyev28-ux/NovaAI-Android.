@@ -304,9 +304,9 @@ WWR_COUNTRY_NAMES = (
 )
 WWR_RESTRICTED_RE = re.compile(
     r"\b(?:remote\s*(?:job|role|position)?\s*[-:(]\s*(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
-    r"only\s+(?:applicants?|candidates?|residents?|employees?)\s+(?:located|based|living|residing|from)\s+in\s+(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
-    r"(?:must|needs? to|required to)\s+(?:be\s+)?(?:located|based|resident|residing|live|living)\s+in\s+(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
-    r"(?:applicants?|candidates?)\s+(?:must|required to|need to)\s+(?:be\s+)?(?:located|based|resident|residing|living)\s+in\s+(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
+    + r"only\s+(?:applicants?|candidates?|residents?|employees?)\s+(?:located|based|living|residing|from)\s+in\s+(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
+    + r"(?:must|needs? to|required to)\s+(?:be\s+)?(?:located|based|resident|residing|live|living)\s+in\s+(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
+    + r"(?:applicants?|candidates?)\s+(?:must|required to|need to)\s+(?:be\s+)?(?:located|based|resident|residing|living)\s+in\s+(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
     + WWR_COUNTRY_NAMES + r"\s+only\b)",
     re.I,
 )
