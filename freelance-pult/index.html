@@ -16,7 +16,8 @@
 <div class="heading"><h2>Быстрый старт</h2></div><div class="actions"><a class="btn secondary" href="https://www.fl.ru/projects/" target="_blank" rel="noopener">Найти заказ ↗</a><a class="btn secondary" href="https://www.fl.ru/" target="_blank" rel="noopener">Профиль FL.ru ↗</a><button onclick="go('reply')">Составить отклик</button></div>
 <div class="heading"><h2>Свежие удалённые заказы</h2><span id="jobsFeedStatus" class="badge">подключение…</span></div>
 <div class="card"><p>Подборка обновляется ежедневно из публичных API Himalayas, Jobicy и Remote OK, а также RSS FL.ru, когда он доступен. Учитываем явные страновые ограничения и поднимаем выше задачи, подходящие для телефона. Возможность найма резидента России и выплаты на российскую карту источники обычно не подтверждают — уточни до отклика.</p>
-<div class="actions"><button onclick="refreshJobsFeed(true)">Обновить ленту</button><a class="btn secondary" href="https://himalayas.app/" target="_blank" rel="noopener">Источник Himalayas ↗</a><a class="btn secondary" href="https://jobicy.com/" target="_blank" rel="noopener">Источник Jobicy ↗</a><a class="btn secondary" href="https://remoteok.com/" target="_blank" rel="noopener">Источник Remote OK ↗</a><a class="btn secondary" href="https://www.fl.ru/rss/all.xml" target="_blank" rel="noopener">RSS FL.ru ↗</a><a class="btn secondary" href="https://www.fl.ru/projects/" target="_blank" rel="noopener">Все проекты ↗</a></div>
+<div class="actions"><button onclick="refreshJobsFeed(true)">Обновить ленту</button><button class="secondary" id="jobsAlertsBtn" onclick="toggleJobsAlerts()">🔔 Включить уведомления</button><a class="btn secondary" href="https://himalayas.app/" target="_blank" rel="noopener">Источник Himalayas ↗</a><a class="btn secondary" href="https://jobicy.com/" target="_blank" rel="noopener">Источник Jobicy ↗</a><a class="btn secondary" href="https://remoteok.com/" target="_blank" rel="noopener">Источник Remote OK ↗</a><a class="btn secondary" href="https://www.fl.ru/rss/all.xml" target="_blank" rel="noopener">RSS FL.ru ↗</a><a class="btn secondary" href="https://www.fl.ru/projects/" target="_blank" rel="noopener">Все проекты ↗</a></div>
+<div id="jobsAlertsStatus" class="meta" style="margin-top:6px">Уведомления можно включить на этом устройстве. Новые проекты проверяются, пока панель открыта.</div>
 <div id="jobsFeedMeta" class="meta" style="margin-top:10px"></div><div id="liveJobs" class="list" style="margin-top:10px"><div class="empty">Загружаю последние объявления…</div></div></div>
 <div class="heading"><h2>Недавние заказы</h2><button class="secondary small" onclick="go('orders')">Все →</button></div><div id="recent" class="list"></div>
 <div class="heading"><h2>Рабочий автопроцесс</h2><span class="badge">на сегодня</span></div>
@@ -84,6 +85,48 @@ function quickPrepareReply(){let title=document.getElementById("quickTitle").val
 const JOBS_FEED_URL="https://raw.githubusercontent.com/maximmiheyev28-ux/NovaAI-Android./jobs-feed/freelance-pult/jobs.json";
 let jobsFeedData=null, jobsFeedItems=[];
 function feedDate(value){if(!value)return "дата не указана";let d=new Date(value);return Number.isNaN(d.getTime())?"дата не указана":d.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}
+
+const JOBS_ALERT_KEY="fpult_jobs_alerts_v1", JOBS_SEEN_KEY="fpult_jobs_seen_v1";
+function readSeenJobs(){try{const s=JSON.parse(localStorage.getItem(JOBS_SEEN_KEY)||"{}");return{initialized:!!s.initialized,ids:Array.isArray(s.ids)?s.ids:[]}}catch(e){return{initialized:false,ids:[]}}}
+function writeSeenJobs(ids){localStorage.setItem(JOBS_SEEN_KEY,JSON.stringify({initialized:true,ids:[...new Set(ids)].slice(-500),updatedAt:new Date().toISOString()}))}
+function alertsEnabled(){return localStorage.getItem(JOBS_ALERT_KEY)==="1"}
+function renderJobsAlerts(){
+ const btn=document.getElementById("jobsAlertsBtn"),status=document.getElementById("jobsAlertsStatus");if(!btn||!status)return;
+ const enabled=alertsEnabled()&&("Notification" in window)&&Notification.permission==="granted";
+ btn.textContent=enabled?"Отключить уведомления":"🔔 Включить уведомления";
+ if(!("Notification" in window)){status.textContent="Этот браузер не поддерживает уведомления. Подборка всё равно обновляется, пока панель открыта.";return}
+ if(Notification.permission==="denied"){status.textContent="Уведомления запрещены в настройках браузера. Разреши их для этого сайта в настройках Chrome.";return}
+ status.textContent=enabled?"Уведомления включены на этом устройстве. Проверка выполняется примерно раз в час, пока панель открыта; после закрытия приложение не получает фоновые обновления.":"Уведомления выключены. После включения они приходят только пока панель открыта; для фоновых push-уведомлений нужен отдельный push-сервис.";
+}
+async function toggleJobsAlerts(){
+ if(alertsEnabled()){localStorage.removeItem(JOBS_ALERT_KEY);renderJobsAlerts();return}
+ if(!("Notification" in window)){alert("Браузер не поддерживает уведомления. Открывай панель, чтобы просматривать свежую ленту.");renderJobsAlerts();return}
+ try{
+  const permission=Notification.permission==="granted"?"granted":await Notification.requestPermission();
+  if(permission!=="granted"){renderJobsAlerts();alert("Разреши уведомления для этого сайта в настройках браузера.");return}
+  localStorage.setItem(JOBS_ALERT_KEY,"1");
+  if(jobsFeedItems.length&&!readSeenJobs().initialized)writeSeenJobs(jobsFeedItems.map(j=>j.id));
+  renderJobsAlerts();alert("Уведомления включены. Новые объявления будут сообщаться, пока панель открыта.");
+ }catch(e){renderJobsAlerts();alert("Не удалось включить уведомления в этом браузере.");}
+}
+async function notifyNewJobs(items){
+ const state=readSeenJobs(),ids=items.map(j=>String(j.id));
+ if(!state.initialized){writeSeenJobs(ids);return}
+ const old=new Set(state.ids),fresh=items.filter(j=>j&&j.id&&!old.has(String(j.id)));
+ writeSeenJobs([...state.ids,...ids]);
+ if(!fresh.length||!alertsEnabled()||!("Notification" in window)||Notification.permission!=="granted")return;
+ const sorted=fresh.sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0));
+ const important=sorted.filter(j=>(Number(j.score)||0)>=60);
+ if(!important.length)return;
+ const top=important[0],more=important.length-1;
+ const body=[top.title,more?("Ещё подходящих новых: "+more):""].filter(Boolean).join(" · ").slice(0,220);
+ try{
+  const reg=await navigator.serviceWorker?.ready;
+  if(reg&&reg.showNotification)await reg.showNotification("Найдены новые удалённые заказы",{body,tag:"freelance-pult-new-jobs",renotify:true,data:{url:safeurl(top.link)||location.href}});
+  else new Notification("Найдены новые удалённые заказы",{body});
+ }catch(e){/* permission may be revoked between checks; feed still works */}
+}
+
 function renderLiveJobs(){
  const status=document.getElementById("jobsFeedStatus"),meta=document.getElementById("jobsFeedMeta"),box=document.getElementById("liveJobs");
  if(!status||!meta||!box)return;
@@ -111,7 +154,8 @@ async function refreshJobsFeed(manual=false){
    if(!data||!Array.isArray(data.items))throw new Error("invalid feed JSON");
    jobsFeedData=data;
    jobsFeedItems=data.items.filter(j=>j&&j.id&&j.title&&safeurl(j.link)&&!j.criticalRisk).sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0));
-   renderLiveJobs();return;
+   await notifyNewJobs(jobsFeedItems);
+   renderLiveJobs();renderJobsAlerts();return;
   }catch(e){lastError=e}
  }
  if(status)status.textContent="ошибка загрузки";
@@ -134,5 +178,5 @@ function draftFeedJob(id){
 }
 
 function renderAll(){renderStats();renderHome();renderOrders();renderDrafts();renderMoney();renderDaily();renderLiveJobs()}document.getElementById("services").textContent=serviceText;function copyServices(){navigator.clipboard.writeText(serviceText).then(()=>alert("Скопировано.")).catch(()=>prompt("Скопируй тексты услуг",serviceText))}
-renderAll();refreshJobsFeed(false);if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
+renderAll();renderJobsAlerts();refreshJobsFeed(false);if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").then(()=>{}).catch(()=>{});setInterval(()=>{if(!document.hidden)refreshJobsFeed(false)},60*60*1000);
 </script></body></html>
