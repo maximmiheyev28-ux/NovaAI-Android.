@@ -469,12 +469,13 @@ def job_geo_eligibility(value: Any) -> tuple[bool, str]:
         return True, geo + " — уточни, допускаются ли кандидаты, проживающие в РФ."
     # Explicitly restricted markets are excluded unless the listing separately said Russia/CIS/worldwide.
     restricted_market = re.compile(
-        r"united states|usa|us only|united kingdom|uk only|"
-        r"canada|australia|india|philippines|latin america|latam|"
-        r"north america|singapore|poland|bulgaria",
+        r"united states|usa|us only|united kingdom|canada|australia|"
+        r"india|philippines|latin america|latam|north america|singapore|poland|bulgaria",
         re.I,
     )
-    if restricted_market.search(lower):
+    if lower.strip() in {"uk", "u.k.", "united kingdom"} or restricted_market.search(lower):
+        return False, geo
+    if re.search(r"(?:^|[,/| ])uk(?:$|[,/| ])", lower):
         return False, geo
     return True, geo + " — проверь ограничения по стране перед откликом."
 
