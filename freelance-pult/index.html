@@ -226,7 +226,7 @@ function platformFromLink(link){
 }
 function titleFromLink(link){
  try{
-  const u=new URL(link),m=u.pathname.match(/\\/projects\\/(\\d+)/i);
+  const u=new URL(link),m=u.pathname.match(/\/projects\/(\d+)/i);
   if(u.hostname.toLowerCase()==="kwork.ru"||u.hostname.toLowerCase().endsWith(".kwork.ru"))return m?"Проект Kwork №"+m[1]:"Проект Kwork по ссылке";
   return "Проект по ссылке ("+u.hostname+")";
  }catch(e){return "Проект по ссылке"}
@@ -235,7 +235,7 @@ function validateQuickKworkLink(){
  const field=document.getElementById("quickLink"),raw=field.value.trim(),link=safeurl(raw);
  if(!link){alert("Вставь корректную ссылку, начинающуюся с https://.");field.focus();return ""}
  if(platformFromLink(link)!=="Kwork"){alert("Сейчас пульт принимает ссылки на Kwork. Открой конкретный проект Kwork и скопируй его ссылку.");field.focus();return ""}
- if(!/\\/projects\\/\\d+/i.test(new URL(link).pathname)){alert("Нужна прямая ссылка на проект вида https://kwork.ru/projects/123456/view, а не ссылка на весь список.");field.focus();return ""}
+ if(!/\/projects\/\d+/i.test(new URL(link).pathname)){alert("Нужна прямая ссылка на проект вида https://kwork.ru/projects/123456/view, а не ссылка на весь список.");field.focus();return ""}
  field.value=link;return link;
 }
 function saveQuickLink(silent=false){
@@ -259,7 +259,7 @@ async function quickAnalyzeLink(){
 async function pasteJobClipboard(){
  try{
   if(!navigator.clipboard||!navigator.clipboard.readText)throw new Error("clipboard unavailable");
-  const raw=(await navigator.clipboard.readText()).trim(),urls=raw.match(/https?:\\/\\/[^\\s<>"']+/g)||[];
+  const raw=(await navigator.clipboard.readText()).trim(),urls=raw.match(/https?:\/\/[^\s<>"']+/g)||[];
   if(!raw){alert("Буфер обмена пуст.");return}
   const link=urls.length?urls[0].replace(/[),.;!?]+$/,""):raw;
   const clean=safeurl(link);
