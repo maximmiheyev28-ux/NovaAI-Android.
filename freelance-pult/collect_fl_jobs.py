@@ -709,6 +709,20 @@ def parse_remoteok_feed() -> list[dict]:
     return records
 
 
+def is_fresh_for_auto_package(item: dict, now: dt.datetime | None = None) -> bool:
+    """Cloud auto-drafts are only prepared for dated leads published in the last 72 hours."""
+    published = parse_date(str(item.get("publishedAt") or ""))
+    if not published:
+        return False
+    try:
+        published_dt = dt.datetime.fromisoformat(published.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return False
+    now = now or dt.datetime.now(dt.timezone.utc)
+    age_hours = (now - published_dt).total_seconds() / 3600
+    return 0 <= age_hours <= 72
+
+
 def build_auto_package(item: dict) -> dict:
     """Prepare a conservative, non-claiming response draft and checklist without an LLM."""
     title = clean_text(str(item.get("title") or "Удалённая задача"))[:180]
@@ -956,7 +970,7 @@ def main() -> int:
     candidates.sort(key=lambda item: (item["score"], item["publishedAt"] or ""), reverse=True)
     candidates = candidates[:MAX_ITEMS]
     for item in candidates:
-        if int(item.get("score") or 0) >= 50:
+        if int(item.get("score") or 0) >= 50 and is_fresh_for_auto_package(item):
             item["autoPackage"] = build_auto_package(item)
 
     payload = {
