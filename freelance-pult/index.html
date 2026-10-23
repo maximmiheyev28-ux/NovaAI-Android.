@@ -14,6 +14,10 @@
 <nav class="nav"><button class="active" data-tab="home">Обзор</button><button data-tab="orders">Заказы</button><button data-tab="reply">Отклик</button><button data-tab="money">Деньги</button><button data-tab="more">Данные</button></nav>
 <section id="p-home" class="page active">
 <div class="heading"><h2>Быстрый старт</h2></div><div class="actions"><a class="btn secondary" href="https://www.fl.ru/projects/" target="_blank" rel="noopener">Найти заказ ↗</a><a class="btn secondary" href="https://www.fl.ru/" target="_blank" rel="noopener">Профиль FL.ru ↗</a><button onclick="go('reply')">Составить отклик</button></div>
+<div class="heading"><h2>Свежие проекты FL.ru</h2><span id="jobsFeedStatus" class="badge">подключение…</span></div>
+<div class="card"><p>Лента собирается из публичного RSS FL.ru по расписанию примерно раз в 6 часов. Это подборка по ключевым словам, а не гарантия, что заказчик ещё ищет исполнителя. Открой страницу и проверь условия перед откликом.</p>
+<div class="actions"><button onclick="refreshJobsFeed(true)">Обновить ленту</button><a class="btn secondary" href="https://www.fl.ru/rss/all.xml" target="_blank" rel="noopener">Открыть RSS ↗</a><a class="btn secondary" href="https://www.fl.ru/projects/" target="_blank" rel="noopener">Все проекты ↗</a></div>
+<div id="jobsFeedMeta" class="meta" style="margin-top:10px"></div><div id="liveJobs" class="list" style="margin-top:10px"><div class="empty">Загружаю последние объявления…</div></div></div>
 <div class="heading"><h2>Недавние заказы</h2><button class="secondary small" onclick="go('orders')">Все →</button></div><div id="recent" class="list"></div>
 <div class="heading"><h2>Рабочий автопроцесс</h2><span class="badge">на сегодня</span></div>
 <div class="card"><p>Панель не обходит сайты в фоне и не отправляет отклики автоматически. Этот блок ускоряет ежедневный процесс и сохраняет отметки на этом устройстве.</p>
@@ -76,6 +80,59 @@ function assessText(title,job,platform,price,link){let text=(title+" "+job).toLo
 function analyzeQuickJob(){let title=document.getElementById("quickTitle").value.trim(),job=document.getElementById("quickText").value.trim(),platform=document.getElementById("quickPlatform").value,price=document.getElementById("quickPrice").value,link=document.getElementById("quickLink").value.trim();if(!title&&!job){alert("Вставь название или текст объявления.");return}let a=assessText(title,job,platform,price,link);if(a.budget&&!Number(price)){document.getElementById("quickPrice").value=a.budget;price=a.budget}let out=document.getElementById("jobAnalysis");out.classList.remove("hide");out.innerHTML='<div class="item"><div class="top"><h3>Предварительная оценка</h3><span class="badge">'+a.score+' / 100</span></div><p><b>'+esc(a.verdict)+'</b></p><p>Совпадение с типами простых цифровых задач: <b>'+(a.positive?"обнаружено":"не обнаружено")+'</b></p><p>Бюджет: <b>'+(a.budget?rub(a.budget):(Number(price)?rub(price):"не распознан"))+'</b> · Срок: <b>'+esc(a.due||"не распознан")+'</b></p>'+(a.risks.length?'<p>Предупреждения:<br>'+a.risks.map(x=>"• "+esc(x)).join("<br>")+'</p>':'<p class="good" style="padding:9px;border-radius:9px">Явные шаблоны опасных требований не найдены — это не гарантия безопасности.</p>')+'<p class="meta">Оценка эвристическая: она анализирует только вставленный текст и не проверяет заказчика, объявление или платёж.</p></div>';return a}
 function quickSave(){let title=document.getElementById("quickTitle").value.trim();if(!title){alert("Укажи название проекта.");return}let link=document.getElementById("quickLink").value.trim();if(link&&!safeurl(link)){alert("Ссылка должна начинаться с http:// или https://.");return}let platform=document.getElementById("quickPlatform").value,notes=document.getElementById("quickText").value.trim(),price=Math.max(0,+document.getElementById("quickPrice").value||0),a=assessText(title,notes,platform,price,link);db.orders.unshift({id:uid(),title,platform,status:"new",price:price||a.budget,due:a.due,link,notes,fit:a.score,risks:a.risks,analyzedAt:new Date().toISOString()});save();document.getElementById("quickTitle").value="";document.getElementById("quickPrice").value="";document.getElementById("quickLink").value="";document.getElementById("quickText").value="";document.getElementById("jobAnalysis").classList.add("hide");alert("Заказ сохранён с оценкой совпадения и проверкой распространённых рисков.")}
 function quickPrepareReply(){let title=document.getElementById("quickTitle").value.trim(),job=document.getElementById("quickText").value.trim();if(!title&&!job){alert("Вставь название или текст объявления.");return}document.getElementById("rtitle").value=title;document.getElementById("job").value=job;document.getElementById("rprice").value=document.getElementById("quickPrice").value;go("reply");makeReply()}
-function renderAll(){renderStats();renderHome();renderOrders();renderDrafts();renderMoney();renderDaily()}document.getElementById("services").textContent=serviceText;function copyServices(){navigator.clipboard.writeText(serviceText).then(()=>alert("Скопировано.")).catch(()=>prompt("Скопируй тексты услуг",serviceText))}
-renderAll();if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
+
+const JOBS_FEED_URL="https://raw.githubusercontent.com/maximmiheyev28-ux/NovaAI-Android./main/freelance-pult/jobs.json";
+let jobsFeedData=null, jobsFeedItems=[];
+function feedDate(value){if(!value)return "дата не указана";let d=new Date(value);return Number.isNaN(d.getTime())?"дата не указана":d.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}
+function renderLiveJobs(){
+ const status=document.getElementById("jobsFeedStatus"),meta=document.getElementById("jobsFeedMeta"),box=document.getElementById("liveJobs");
+ if(!status||!meta||!box)return;
+ if(!jobsFeedData){status.textContent="нет данных";meta.textContent="Автоматическая лента пока не ответила. Можно открыть FL.ru напрямую.";box.innerHTML='<div class="empty">Нет загруженных проектов. Проверь соединение и нажми «Обновить ленту».</div>';return}
+ let checked=jobsFeedData.checkedAt?feedDate(jobsFeedData.checkedAt):"ещё не проверялась",stats=jobsFeedData.stats||{};
+ status.textContent=jobsFeedData.checkedAt?"RSS · "+jobsFeedItems.length:"ожидание первой проверки";
+ meta.textContent="Последняя проверка: "+checked+". Найдено проектов: "+(Number(stats.fetchedUnique)||0)+"; подходящих после фильтра: "+jobsFeedItems.length+". " +(stats.excludedCriticalRisk?"Исключено с критическими признаками риска: "+stats.excludedCriticalRisk+". ":"")+ (Array.isArray(stats.feedErrors)&&stats.feedErrors.length?"Проблемы источников: "+stats.feedErrors.length+". ":"")+ (jobsFeedData.maxAgeNotice||"");
+ if(!jobsFeedItems.length){box.innerHTML='<div class="empty">В последней выборке нет объявлений, прошедших фильтр. Открой полную ленту FL.ru или повтори обновление позже.</div>';return}
+ box.innerHTML=jobsFeedItems.slice(0,10).map(j=>{
+  const url=safeurl(j.link),risk=Array.isArray(j.riskFlags)?j.riskFlags:[],budget=esc(j.budgetText||"не указан"),deadline=esc(j.deadlineHint||"не распознан");
+  return '<article class="item"><div class="top"><div><h3>'+esc(j.title)+'</h3><div class="meta">'+esc(j.feedName||"FL.ru RSS")+' · '+feedDate(j.publishedAt)+'</div></div><span class="badge">'+Math.max(0,Math.min(100,Number(j.score)||0))+'/100</span></div><p>'+esc((j.description||"Описание доступно на странице проекта.").slice(0,480))+'</p><div class="meta">Бюджет: '+budget+' · Срок: '+deadline+'</div>'+(risk.length?'<p class="meta" style="color:var(--warn)">Предупреждение: '+esc(risk.join("; "))+'</p>':"")+'<div class="actions" style="margin-top:10px">'+(url?'<a class="btn secondary small" href="'+esc(url)+'" target="_blank" rel="noopener">Открыть проект ↗</a>':"")+'<button class="small" onclick="saveFeedJob(\''+esc(j.id)+'\')">Сохранить</button><button class="secondary small" onclick="draftFeedJob(\''+esc(j.id)+'\')">Черновик отклика</button></div></article>';
+ }).join("");
+}
+async function refreshJobsFeed(manual=false){
+ const status=document.getElementById("jobsFeedStatus");
+ if(manual&&status)status.textContent="обновление…";
+ const urls=[JOBS_FEED_URL,"./jobs.json"];
+ let lastError=null;
+ for(const base of urls){
+  try{
+   const sep=base.includes("?")?"&":"?";
+   const resp=await fetch(base+sep+"v="+Date.now(),{cache:"no-store",headers:{"Accept":"application/json"}});
+   if(!resp.ok)throw new Error("HTTP "+resp.status);
+   const data=await resp.json();
+   if(!data||!Array.isArray(data.items))throw new Error("invalid feed JSON");
+   jobsFeedData=data;
+   jobsFeedItems=data.items.filter(j=>j&&j.id&&j.title&&safeurl(j.link)&&!j.criticalRisk).sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0));
+   renderLiveJobs();return;
+  }catch(e){lastError=e}
+ }
+ if(status)status.textContent="ошибка загрузки";
+ if(!jobsFeedData){const meta=document.getElementById("jobsFeedMeta");if(meta)meta.textContent="Не удалось загрузить RSS-выборку: "+String(lastError||"неизвестная ошибка");}
+ renderLiveJobs();
+}
+function saveFeedJob(id){
+ const j=jobsFeedItems.find(x=>x.id===id);if(!j)return;
+ const url=safeurl(j.link);if(db.orders.some(o=>url&&safeurl(o.link)===url)){alert("Этот проект уже есть в твоих заказах.");return}
+ db.orders.unshift({id:uid(),title:String(j.title||"Проект FL.ru").slice(0,150),platform:"FL.ru",status:"new",price:Math.max(0,Number(j.budgetMin)||0),due:String(j.deadlineHint||""),link:url,notes:String(j.description||"").slice(0,4000),fit:Number(j.score)||0,risks:Array.isArray(j.riskFlags)?j.riskFlags:[],feedPublishedAt:j.publishedAt||"",savedAt:new Date().toISOString()});
+ save();alert("Проект сохранён в разделе «Заказы». Проверь бюджет, срок и условия вручную.");
+}
+function draftFeedJob(id){
+ const j=jobsFeedItems.find(x=>x.id===id);if(!j)return;
+ document.getElementById("rtitle").value=String(j.title||"").slice(0,150);
+ document.getElementById("job").value=[j.description||"",j.link?"Ссылка на объявление: "+j.link:""].filter(Boolean).join("\n");
+ document.getElementById("rprice").value=Number(j.budgetMin)||"";
+ document.getElementById("rdue").value=j.deadlineHint||"";
+ go("reply");makeReply();
+}
+
+function renderAll(){renderStats();renderHome();renderOrders();renderDrafts();renderMoney();renderDaily();renderLiveJobs()}document.getElementById("services").textContent=serviceText;function copyServices(){navigator.clipboard.writeText(serviceText).then(()=>alert("Скопировано.")).catch(()=>prompt("Скопируй тексты услуг",serviceText))}
+renderAll();refreshJobsFeed(false);if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
 </script></body></html>
