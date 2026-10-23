@@ -260,7 +260,7 @@ async function refreshJobsFeed(manual=false){
    const data=await resp.json();
    if(!data||!Array.isArray(data.items))throw new Error("invalid feed JSON");
    jobsFeedData=data;
-   jobsFeedItems=data.items.filter(j=>{if(!j||!j.id||!j.title||!safeurl(j.link)||!(/kwork\.ru$/i.test(new URL(safeurl(j.link)).hostname)||/kwork/i.test(String(j.source||"")+" "+String(j.feedName||"")))||/fl\.ru/i.test(String(j.source||"")+" "+String(j.link||""))||j.criticalRisk||(Number(j.score)||0)<50)return false;if(j.publishedAt){const age=(Date.now()-new Date(j.publishedAt).getTime())/3600000;if(Number.isFinite(age)&&age>24*14)return false}return true}).sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0));
+   jobsFeedItems=data.items.filter(j=>{if(!j||!j.id||!j.title||!safeurl(j.link)||!(/(^|\.)kwork\.ru$/i.test(new URL(safeurl(j.link)).hostname))||/fl\.ru/i.test(String(j.source||"")+" "+String(j.link||""))||j.criticalRisk||(Number(j.score)||0)<50)return false;if(j.publishedAt){const age=(Date.now()-new Date(j.publishedAt).getTime())/3600000;if(Number.isFinite(age)&&age>24*14)return false}return true}).sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0));
    await notifyNewJobs(jobsFeedItems);
    try{autoPrepareNewJobs(jobsFeedItems)}catch(e){const status=document.getElementById("autoPackStatus");if(status)status.textContent="Автоподготовка не сработала; используй кнопку «Пакет + план» на карточке."}
    renderLiveJobs();renderJobsAlerts();renderAutoPackControl();return;
