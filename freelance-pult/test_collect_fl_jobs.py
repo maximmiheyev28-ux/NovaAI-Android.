@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from collect_fl_jobs import build_auto_package, is_fresh_for_auto_package, job_geo_eligibility, parse_wwr_feed, salary_label, score_item
-from merge_jobs_feed import blocked_cached_item, too_old_to_carry
+from merge_jobs_feed import blocked_cached_item, remove_stale_auto_package, too_old_to_carry
 
 
 class CollectorPolicyTests(unittest.TestCase):
@@ -137,6 +137,15 @@ class CollectorPolicyTests(unittest.TestCase):
         old_score = score_item("Литературный редактор", "Редактура текста и правка рукописи.", old.isoformat().replace("+00:00", "Z"), 0)[0]
         self.assertGreater(fresh_score, old_score)
         self.assertLess(old_score, 50)
+
+    def test_stale_cloud_packages_are_removed_but_fresh_ones_remain(self):
+        now = datetime(2026, 10, 23, 16, 0, tzinfo=timezone.utc)
+        fresh = {"title": "Writer", "publishedAt": "2026-10-22T12:00:00Z", "autoPackage": {"category": "text"}}
+        old = {"title": "Writer", "publishedAt": "2026-10-19T12:00:00Z", "autoPackage": {"category": "text"}}
+        unknown = {"title": "Writer", "publishedAt": "", "autoPackage": {"category": "text"}}
+        self.assertIn("autoPackage", remove_stale_auto_package(fresh, now))
+        self.assertNotIn("autoPackage", remove_stale_auto_package(old, now))
+        self.assertNotIn("autoPackage", remove_stale_auto_package(unknown, now))
 
     def test_cached_project_staleness_window_is_shorter_than_remote_role_window(self):
         now = datetime(2026, 10, 23, 16, 0, tzinfo=timezone.utc)
