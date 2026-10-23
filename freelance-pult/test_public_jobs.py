@@ -214,6 +214,19 @@ class CollectorPolicyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_kwork_html("<html><body>No project cards here</body></html>")
 
+    def test_kwork_excludes_cad_drafting_but_allows_a_writable_greeting(self):
+        page = """<!doctype html><html><body>
+        <div class="project-card"><a href="/projects/3157760/view"><h3>Качественное поздравление на юбилей бабушки</h3></a>
+        <div>Написать тёплое поздравление по вводным от заказчика.</div><div>Цена: 700 ₽</div><div>Осталось: 2 д.</div></div>
+        <div class="project-card"><a href="/projects/3157761/view"><h3>Объединить DXF-файлы в один чертёж</h3></a>
+        <div>Подготовить DXF и PDF, сохранить точные размеры, печать на плоттере.</div><div>Цена: 5000 ₽</div><div>Осталось: 2 д.</div></div>
+        </body></html>"""
+        payload = parse_kwork_html(page, checked_at="2026-10-24T00:00:00Z", previous={"items": []})
+        self.assertEqual([item["title"] for item in payload["items"]],
+                         ["Качественное поздравление на юбилей бабушки"])
+        self.assertEqual(payload["stats"]["excludedReasons"].get("excluded_by_out_of_scope_filter"), 1)
+        self.assertEqual(payload["stats"]["freshCandidates"], 1)
+
 
     def test_kwork_state_data_is_parsed_and_scored(self):
         page = '''<html><title>Биржа проектов - Kwork</title><script>
