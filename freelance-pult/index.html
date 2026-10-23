@@ -20,14 +20,14 @@ input,select,textarea{width:100%;padding:11px 12px;border-radius:11px;border:1px
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style></head><body><main class="wrap">
 <header><div class="logo">FP</div><div><h1>Фриланс-пульт</h1><small>Заказы · отклики · выплаты</small></div></header>
-<section class="hero"><small>МОЯ РАБОЧАЯ ПАНЕЛЬ</small><h2>От заказа до выплаты — без хаоса</h2><p>Сохраняй лиды, готовь отклики, считай ориентировочный перевод и отмечай оплату. Данные хранятся локально в браузере.</p><div class="actions"><a class="btn secondary" href="https://kwork.ru/projects" target="_blank" rel="noopener">↗ Заказы Kwork</a><button class="secondary" onclick="go('orders');formOpen()">＋ Добавить заказ</button></div></section>
+<section class="hero"><small>МОЯ РАБОЧАЯ ПАНЕЛЬ</small><h2>От заказа до выплаты — без хаоса</h2><p>Сохраняй лиды, готовь отклики, считай ориентировочный перевод и отмечай оплату. Данные хранятся локально в браузере.</p><div class="actions"><a class="btn secondary" href="https://kwork.ru/projects" target="_blank" rel="noopener">↗ Заказы Kwork</a><button class="secondary" onclick="focusQuickLink()">＋ Добавить заказ</button></div></section>
 <div class="stats"><div class="stat"><small>Новые / переговоры</small><b id="sNew">0</b></div><div class="stat"><small>В работе</small><b id="sActive">0</b></div><div class="stat"><small>Ждут оплаты</small><b id="sWait">0 ₽</b></div><div class="stat"><small>Получено</small><b id="sPaid">0 ₽</b></div></div>
 <nav class="nav"><button class="active" data-tab="home">Обзор</button><button data-tab="orders">Заказы</button><button data-tab="reply">Отклик</button><button data-tab="money">Деньги</button><button data-tab="more">Данные</button></nav>
 <section id="p-home" class="page active">
 <div class="heading"><h2>Быстрый старт</h2></div><div class="actions"><a class="btn secondary" href="https://kwork.ru/projects" target="_blank" rel="noopener">Найти заказ Kwork ↗</a><button onclick="go('reply')">Составить отклик</button></div>
 <div class="heading"><h2>Проекты для работы</h2><span id="jobsFeedStatus" class="badge">ручной выбор</span></div>
 <div class="card"><p><b>Безопасный режим работы.</b> Автоматический сбор проектов, отклики и отправка результатов через бота отключены: действующие условия Kwork запрещают роботизированный сбор данных и несанкционированное ПО для автоматизации сервиса. Выбирай подходящее объявление в официальном интерфейсе Kwork, затем внеси его название, ссылку и требования в форму ниже.</p>
-<div class="actions"><a class="btn" href="https://kwork.ru/projects" target="_blank" rel="noopener">Открыть все проекты Kwork ↗</a><button class="secondary" onclick="go('orders');formOpen()">＋ Добавить выбранный проект</button></div>
+<div class="actions"><a class="btn" href="https://kwork.ru/projects" target="_blank" rel="noopener">Открыть все проекты Kwork ↗</a><button class="secondary" onclick="focusQuickLink()">＋ Добавить выбранный проект</button></div>
 <div id="jobsAlertsStatus" class="meta" style="margin-top:10px">Рабочий цикл: вручную выбрать задание → передать требования в ChatGPT → подготовить результат → проверить по ТЗ → выполнить вторую независимую проверку → только после этого сдать через Kwork.</div>
 <div id="jobsFeedMeta" class="meta" style="margin-top:8px">Автоматическая лента остановлена; ранее сохранённые объявления не считаются актуальными.</div>
 <div id="liveJobs" class="list" style="margin-top:10px"><div class="empty">Новые проекты не загружаются автоматически. Открой Kwork и выбери конкретное задание.</div></div></div>
@@ -44,7 +44,7 @@ input,select,textarea{width:100%;padding:11px 12px;border-radius:11px;border:1px
 <div class="note">Сборщик читает открытые API/RSS, но не входит в аккаунты площадок, не обходит блокировки, не отправляет отклики и не проводит выплаты. Вакансия может быть уже закрыта; проверяй её на исходном сайте. Клиенты и доход не гарантированы.</div>
 <div class="card"><h3>🛡️ Не теряй деньги</h3><p>Работай через безопасную сделку площадки, когда это доступно. Не плати за «активацию вывода», не переходи к подозрительным ссылкам и не сообщай коды из SMS, пароль или CVV.</p></div>
 </section>
-<section id="p-orders" class="page"><div class="heading"><div><h2>Мои заказы</h2><div class="meta">Автосохранение на устройстве</div></div><button onclick="formOpen()">＋ Заказ</button></div>
+<section id="p-orders" class="page"><div class="heading"><div><h2>Мои заказы</h2><div class="meta">Автосохранение на устройстве</div></div><button onclick="focusQuickLink()">＋ Ссылка</button></div>
 <div id="formbox" class="card hide"><h3 id="formtitle">Добавить лид</h3><form id="orderform"><input id="oid" type="hidden"><input id="title" type="hidden">
 <div class="row"><div class="field"><label>Площадка</label><select id="platform"><option>Kwork</option><option>Himalayas</option><option>Jobicy</option><option>Remote OK</option><option>We Work Remotely</option><option>Прямой клиент</option><option>Другое</option></select></div><div class="field"><label>Статус</label><select id="status"><option value="new">Новый лид</option><option value="sent">Отклик отправлен</option><option value="talk">Переговоры</option><option value="active">В работе</option><option value="wait">Ждёт оплату</option><option value="paid">Оплачен</option><option value="lost">Не состоялся</option></select></div></div>
 <div class="row"><div class="field"><label>Сумма, ₽</label><input id="price" type="number" min="0" step="1" placeholder="1000"></div><div class="field"><label>Срок</label><input id="due" type="text" placeholder="3 дня или 2026-10-25"></div></div>
@@ -251,6 +251,13 @@ function saveQuickLink(silent=false){
  return id;
 }
 function quickSave(){saveQuickLink(false)}
+function focusQuickLink(){
+ go("home");
+ setTimeout(()=>{
+  const input=document.getElementById("quickLink");
+  if(input){input.scrollIntoView({behavior:"smooth",block:"center"});input.focus({preventScroll:true})}
+ },180);
+}
 async function quickAnalyzeLink(){
  const id=saveQuickLink(true);if(!id)return;
  go("orders");
