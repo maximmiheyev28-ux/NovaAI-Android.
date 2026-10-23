@@ -109,6 +109,13 @@ def main() -> int:
 
     carried = 0
     previous_items = previous.get("items") or []
+    # A successful Kwork page fetch is the current active-project universe.
+    # Do not keep earlier Kwork cards that disappeared from the live page.
+    if current.get("source") == "Kwork public projects page" and any(
+        isinstance(feed, dict) and feed.get("ok") and feed.get("source") == "Kwork"
+        for feed in (current.get("feeds") or [])
+    ):
+        previous_items = []
     for original in previous_items:
         if not isinstance(original, dict) or not original.get("link") or original.get("criticalRisk"):
             continue
