@@ -287,25 +287,10 @@ def parse_kwork_pages(pages,checked_at=None,previous=None):
   "items":items,"diagnostics":{"excludedExamples":excluded_examples[:20],"excludedReasons":excluded_reasons}}
 
 def fetch_page(page=1):
- page_url=URL if int(page)<=1 else URL+"?page="+str(int(page))
- req=urllib.request.Request(page_url,headers={"User-Agent":UA,"Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"ru,en;q=0.7"})
- with urllib.request.urlopen(req,timeout=30) as r:
-  host=(urlsplit(r.geturl()).hostname or "").lower()
-  if not(host=="kwork.ru" or host.endswith(".kwork.ru")):raise RuntimeError("Public request redirected away from Kwork.")
-  raw=r.read(5_000_001)
-  if len(raw)>5_000_000:raise RuntimeError("Kwork page exceeded the size limit.")
- return raw.decode("utf-8",errors="replace")
+ raise RuntimeError("Automated Kwork collection is disabled: Kwork's published terms prohibit automated robots/software from collecting listing data. Open Kwork manually, choose one project, then paste its brief into Freelance Pult or ChatGPT.")
+
 def main():
- p=argparse.ArgumentParser();p.add_argument("--output",default="freelance-pult/jobs.json");p.add_argument("--previous",default="/tmp/previous-jobs.json");a=p.parse_args()
- try:
-  prev=json.loads(Path(a.previous).read_text(encoding="utf-8")) if Path(a.previous).exists() else {}
-  pages=[fetch_page(n) for n in range(1,6)]
-  payload=parse_kwork_pages(pages,previous=prev)
- except (urllib.error.URLError,urllib.error.HTTPError,TimeoutError,OSError,RuntimeError,ValueError,json.JSONDecodeError) as e:
-  print(f"Kwork feed not refreshed: {type(e).__name__}: {str(e)[:240]}",file=sys.stderr);return 2
- diagnostics=payload.pop("diagnostics",{})
- out=Path(a.output);out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
- print("Kwork stats: "+json.dumps(payload["stats"],ensure_ascii=False))
- print("Kwork exclusion diagnostics (titles are logged only, not published): "+json.dumps(diagnostics,ensure_ascii=False))
- print(f"Wrote {len(payload['items'])} Kwork recommendations to {out}");return 0
+ print("Kwork automatic collection is disabled to comply with Kwork's published terms. The collector will not log in, scrape, apply, message clients, or submit deliverables.",file=sys.stderr)
+ print("Compliant workflow: open Kwork manually, review a specific project, and provide its requirements in Freelance Pult/ChatGPT for preparation and two-pass quality review.",file=sys.stderr)
+ return 2
 if __name__=="__main__":raise SystemExit(main())
