@@ -31,14 +31,16 @@ FL_FEEDS = [
     ("FL.ru · продвижение сайтов", "https://www.fl.ru/rss/all.xml?category=6"),
 ]
 HIMALAYAS_SEARCHES = [
-    ("Himalayas · Россия · контент", {"q": "content", "country": "RU", "sort": "recent"}),
-    ("Himalayas · Россия · виртуальный помощник", {"q": "virtual assistant", "country": "RU", "sort": "recent"}),
-    ("Himalayas · Россия · ввод данных", {"q": "data entry", "country": "RU", "sort": "recent"}),
-    ("Himalayas · Россия · перевод", {"q": "translation", "country": "RU", "sort": "recent"}),
-    ("Himalayas · worldwide · контент", {"q": "content", "worldwide": "true", "sort": "recent"}),
-    ("Himalayas · worldwide · виртуальный помощник", {"q": "virtual assistant", "worldwide": "true", "sort": "recent"}),
-    ("Himalayas · worldwide · ввод данных", {"q": "data entry", "worldwide": "true", "sort": "recent"}),
-    ("Himalayas · worldwide · перевод", {"q": "translation", "worldwide": "true", "sort": "recent"}),
+    ("Himalayas · свежие вакансии · пакет 1", {"limit": "20", "offset": "0"}),
+    ("Himalayas · свежие вакансии · пакет 2", {"limit": "20", "offset": "20"}),
+    ("Himalayas · свежие вакансии · пакет 3", {"limit": "20", "offset": "40"}),
+    ("Himalayas · свежие вакансии · пакет 4", {"limit": "20", "offset": "60"}),
+    ("Himalayas · свежие вакансии · пакет 5", {"limit": "20", "offset": "80"}),
+    ("Himalayas · свежие вакансии · пакет 6", {"limit": "20", "offset": "100"}),
+    ("Himalayas · свежие вакансии · пакет 7", {"limit": "20", "offset": "120"}),
+    ("Himalayas · свежие вакансии · пакет 8", {"limit": "20", "offset": "140"}),
+    ("Himalayas · свежие вакансии · пакет 9", {"limit": "20", "offset": "160"}),
+    ("Himalayas · свежие вакансии · пакет 10", {"limit": "20", "offset": "180"}),
 ]
 HIMALAYAS_API = "https://himalayas.app/jobs/api"
 USER_AGENT = "FreelancePult/1.0 (+https://github.com/maximmiheyev28-ux/NovaAI-Android.)"
