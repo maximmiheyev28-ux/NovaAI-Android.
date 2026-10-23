@@ -31,6 +31,23 @@ class CollectorPolicyTests(unittest.TestCase):
         technical_score = score_item("Конструкторская документация и чертёж", "Нужны чертежи и инженерная документация.", recent, 0)[0]
         self.assertGreater(mobile_score, technical_score)
 
+    def test_professional_design_software_is_not_android_first(self):
+        recent = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        figma_score = score_item(
+            "Добавить пару страниц в готовую презентацию в Figma. Срочно (Бюджет: 2 000 ₽)",
+            "Добавить страницы в Figma.",
+            recent,
+            2000,
+        )[0]
+        writing_score = score_item(
+            "Литературный редактор",
+            "Редактура текста и правка рукописи.",
+            recent,
+            0,
+        )[0]
+        self.assertLess(figma_score, 50)
+        self.assertGreater(writing_score, figma_score)
+
     def test_zero_salary_is_not_reported_as_real_pay(self):
         self.assertEqual(salary_label({"minSalary": 0, "maxSalary": 0, "currency": "", "salaryPeriod": "annual"}), (0, 0, ""))
 
@@ -56,6 +73,7 @@ class CollectorPolicyTests(unittest.TestCase):
     def test_cached_country_specific_and_desktop_jobs_are_removed(self):
         self.assertTrue(blocked_cached_item({"source": "Jobicy", "title": "Content writer", "locationText": "UK"}))
         self.assertTrue(blocked_cached_item({"source": "Remote OK", "title": "Remote software developer", "locationText": "Worldwide"}))
+        self.assertTrue(blocked_cached_item({"source": "FL.ru RSS", "title": "Добавить пару страниц в готовой презентации в Figma", "locationText": "Уточнить доступность"}))
         self.assertFalse(blocked_cached_item({"source": "Remote OK", "title": "Content writer", "locationText": "Worldwide"}))
         self.assertFalse(blocked_cached_item({"source": "FL.ru RSS", "title": "Литературный редактор", "locationText": "Уточнить доступность и условия у заказчика"}))
 
