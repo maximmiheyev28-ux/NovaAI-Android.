@@ -1,11 +1,18 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from collect_fl_jobs import build_auto_package, job_geo_eligibility, parse_wwr_feed, salary_label, score_item
+from collect_fl_jobs import build_auto_package, is_fresh_for_auto_package, job_geo_eligibility, parse_wwr_feed, salary_label, score_item
 from merge_jobs_feed import blocked_cached_item, too_old_to_carry
 
 
 class CollectorPolicyTests(unittest.TestCase):
+    def test_auto_package_only_for_dated_leads_within_72_hours(self):
+        now = datetime(2026, 10, 23, 16, 0, tzinfo=timezone.utc)
+        self.assertTrue(is_fresh_for_auto_package({"publishedAt": "2026-10-22T12:00:00Z"}, now))
+        self.assertFalse(is_fresh_for_auto_package({"publishedAt": "2026-10-19T12:00:00Z"}, now))
+        self.assertFalse(is_fresh_for_auto_package({"publishedAt": ""}, now))
+        self.assertFalse(is_fresh_for_auto_package({"publishedAt": "2026-10-24T12:00:00Z"}, now))
+
     def test_cloud_package_generates_non_claiming_reply_and_usable_plan(self):
         package = build_auto_package({
             "title": "Литературный редактор: фрагменты романа",
