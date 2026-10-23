@@ -92,6 +92,10 @@ MOBILE_TITLE_RE = re.compile(
     r"survey|play.{0,25}game|играть в браузерную игру|видеозапис",
     re.I,
 )
+ANDROID_UNSUITABLE_TITLE_RE = re.compile(
+    r"figma|photoshop|illustrator|autocad|premiere\\s*pro|after\\s*effects|solidworks|revit|blender|3ds\\s*max",
+    re.I,
+)
 TECH_HEAVY_TITLE_RE = re.compile(
     r"senior|full.?stack|engineer|developer|разработчик|программир|рефакторинг|"
     r"php|python|java|c\+\+|qt|modbus|linux|opencart|wordpress|"
@@ -225,7 +229,8 @@ def score_item(title: str, description: str, published_at: str, price_max: int) 
     body_match = bool(POSITIVE_RE.search(description_text))
     matched = title_match or body_match
     technical_title = bool(TECH_HEAVY_TITLE_RE.search(title_text))
-    mobile_title = bool(MOBILE_TITLE_RE.search(title_text)) and not technical_title
+    android_unsuitable = bool(ANDROID_UNSUITABLE_TITLE_RE.search(title_text))
+    mobile_title = bool(MOBILE_TITLE_RE.search(title_text)) and not technical_title and not android_unsuitable
     mobile_body = bool(MOBILE_RE.search(description_text))
     score = 18
 
@@ -270,6 +275,9 @@ def score_item(title: str, description: str, published_at: str, price_max: int) 
     if technical_title:
         score -= 32
         reasons.append("Вероятно требуются специальные навыки или работа за компьютером; для работы только с Android это низкий приоритет")
+    if android_unsuitable:
+        score -= 55
+        reasons.append("Название указывает на профессиональный редактор/САПР, неудобный или непрактичный для выполнения только с Android")
     if risks:
         critical_count = sum(1 for _, message in CRITICAL_RISKS if message in risks)
         score -= 18 * critical_count + 7 * (len(risks) - critical_count)
