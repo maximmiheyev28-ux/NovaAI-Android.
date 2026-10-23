@@ -31,7 +31,11 @@ def blocked_cached_item(item: dict) -> bool:
         r"php|python|java|c\+\+|qt|modbus|linux|opencart|wordpress|верстк|"
         r"лендинг|дизайн.{0,12}(?:сайт|лендинг|макет)|конструкторск|черт[её]ж|"
         r"мониторинг цен|парсинг|сбор с сайтов|rag|hmi|modbus|интернет-магазин|"
-        r"ии.?агент|ai.?agent|seo.?аудит|seo.?специалист|автоматизац.{0,20}(?:процесс|ии)",
+        r"ии.?агент|ai.?agent|seo.?аудит|seo.?специалист|автоматизац.{0,20}(?:процесс|ии)|"
+        r"customer support|customer service|technical support|customer success|support specialist|"
+        r"account executive|sales director|regional sales|product director|"
+        r"customer service rep|communications professional|communications|"
+        r"marketing manager|head of|chief officer",
         re.I,
     )
     if desktop_heavy.search(title):
