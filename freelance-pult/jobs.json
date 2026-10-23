@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "source": "Публичная RSS-лента FL.ru",
+  "checkedAt": null,
+  "maxAgeNotice": "RSS не подтверждает, что заказ всё ещё открыт; проверь объявление перед откликом.",
+  "feeds": [],
+  "stats": {
+    "fetchedUnique": 0,
+    "matchedCandidates": 0,
+    "excludedCriticalRisk": 0,
+    "excludedNoKeywordMatch": 0,
+    "feedErrors": []
+  },
+  "items": []
+}
