@@ -12,12 +12,7 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
-ALLOWED_HOSTS = {
-    "Himalayas": ("himalayas.app",),
-    "Jobicy": ("jobicy.com",),
-    "Remote OK": ("remoteok.com",),
-    "We Work Remotely": ("weworkremotely.com",),
-}
+ALLOWED_HOSTS = {"Kwork": ("kwork.ru",)}
 MIN_SCORE = 65
 MAX_AGE_HOURS = 72
 MAX_PER_MESSAGE = 5
@@ -67,7 +62,7 @@ def select_new_items(previous: dict, current: dict, now: dt.datetime | None = No
     for item in current.get("items") or []:
         if not isinstance(item, dict) or not item.get("title") or not trusted_source_link(item):
             continue
-        if item.get("criticalRisk") or not item.get("hasRelevantKeywords"):
+        if item.get("criticalRisk") or not item.get("hasRelevantKeywords") or item.get("recommendation") != "recommend":
             continue
         try:
             score = int(item.get("score") or 0)
@@ -75,7 +70,7 @@ def select_new_items(previous: dict, current: dict, now: dt.datetime | None = No
             score = 0
         if score < MIN_SCORE:
             continue
-        published = parse_time(item.get("publishedAt"))
+        published = parse_time(item.get("publishedAt") or item.get("firstSeenAt") or item.get("discoveredAt"))
         if published is None:
             continue
         age = (now - published).total_seconds() / 3600
@@ -90,7 +85,7 @@ def select_new_items(previous: dict, current: dict, now: dt.datetime | None = No
 
 
 def format_message(items: list[dict]) -> str:
-    chunks = ["🆕 Новые подходящие удалённые заказы"]
+    chunks = ["🆕 Новые подходящие заказы Kwork"]
     for item in items:
         title = " ".join(str(item.get("title") or "Без названия").split())[:180]
         source = " ".join(str(item.get("source") or "Источник не указан").split())[:60]

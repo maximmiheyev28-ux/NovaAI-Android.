@@ -26,23 +26,21 @@ def remove_stale_auto_package(item: dict, now: dt.datetime) -> dict:
     """Drop cloud-generated material once the source listing is older than 72 hours."""
     if "autoPackage" not in item:
         return item
-    published = parse_time(item.get("publishedAt"))
+    published = parse_time(item.get("publishedAt") or item.get("firstSeenAt") or item.get("discoveredAt"))
     if published is None or (now - published).total_seconds() < 0 or (now - published).total_seconds() > 72 * 3600:
         item.pop("autoPackage", None)
     return item
 
 
 def blocked_cached_item(item: dict) -> bool:
-    """Reject the removed FL.ru source and explicit country restrictions, not computer-based work."""
-    # Old snapshots may still contain records from the previously configured source.
-    # Drop them by source label or hostname, regardless of title/geography.
+    """Carry only Kwork listings; never resurrect records from old sources."""
     source = str(item.get("source") or "").strip().lower()
     link = str(item.get("link") or "").strip().lower()
     try:
         host = (urlsplit(link).hostname or "").lower()
     except ValueError:
         host = ""
-    if source == "fl.ru rss" or host == "fl.ru" or host.endswith(".fl.ru"):
+    if source != "kwork" or not (host == "kwork.ru" or host.endswith(".kwork.ru")):
         return True
 
     geo = str(item.get("locationText") or "").lower().strip()
@@ -60,7 +58,7 @@ def blocked_cached_item(item: dict) -> bool:
 
 def too_old_to_carry(item: dict, now: dt.datetime) -> bool:
     """Do not resurrect stale project-based gigs; longer remote jobs get a wider window."""
-    published = parse_time(item.get("publishedAt"))
+    published = parse_time(item.get("publishedAt") or item.get("firstSeenAt") or item.get("discoveredAt"))
     if published is None:
         return False
     return (now - published).total_seconds() > 14 * 86400
@@ -151,12 +149,11 @@ def main() -> int:
     current["stats"] = stats
     current["items"] = merged
     current["maxAgeNotice"] = (
-        "Источники могут временно не отвечать; в таком случае панель сохраняет ранее найденные карточки максимум на 36 часов. "
-        "Проверь прямую страницу перед откликом: RSS и API не гарантируют, что вакансия ещё открыта."
+        "Показываются только проекты Kwork. Если публичная страница временно не отвечает, последняя выборка хранится максимум 36 часов, "
+        "если срок проекта не истёк. Проверь оригинальную карточку перед откликом."
     )
     current["attribution"] = (
-        "Источники: Himalayas (himalayas.app), Jobicy (jobicy.com), Remote OK (remoteok.com), "
-        "We Work Remotely (weworkremotely.com). Открой оригинальную карточку вакансии перед откликом."
+        "Источник: официальная публичная страница проектов Kwork (kwork.ru/projects). Открой оригинальную карточку перед откликом."
     )
 
     output_path = Path(args.output)
