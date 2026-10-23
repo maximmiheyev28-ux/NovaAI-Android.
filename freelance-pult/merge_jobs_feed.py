@@ -22,6 +22,16 @@ def parse_time(value: str | None) -> dt.datetime | None:
         return None
 
 
+def remove_stale_auto_package(item: dict, now: dt.datetime) -> dict:
+    """Drop cloud-generated material once the source listing is older than 72 hours."""
+    if "autoPackage" not in item:
+        return item
+    published = parse_time(item.get("publishedAt"))
+    if published is None or (now - published).total_seconds() < 0 or (now - published).total_seconds() > 72 * 3600:
+        item.pop("autoPackage", None)
+    return item
+
+
 def blocked_cached_item(item: dict) -> bool:
     source = str(item.get("source") or "")
     title = str(item.get("title") or "").lower()
@@ -143,10 +153,7 @@ def main() -> int:
     merged = merged[:100]
     # Do not retain generated drafts/plans once their source listing is older than 72 hours.
     for item in merged:
-        if "autoPackage" in item:
-            published = parse_time(item.get("publishedAt"))
-            if published is None or (now - published).total_seconds() < 0 or (now - published).total_seconds() > 72 * 3600:
-                item.pop("autoPackage", None)
+        remove_stale_auto_package(item, now)
 
     stats = current.get("stats") or {}
     stats["freshCandidates"] = len(current_items)
