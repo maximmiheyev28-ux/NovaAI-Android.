@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch five public pages of Kwork projects and recommend only feasible deliverables."""
+"""Offline parser and filters for project material; automated Kwork retrieval is disabled."""
 from __future__ import annotations
 import argparse,datetime as dt,html,json,re,sys,urllib.error,urllib.request
 from html.parser import HTMLParser
