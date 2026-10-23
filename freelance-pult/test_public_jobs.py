@@ -210,6 +210,20 @@ class CollectorPolicyTests(unittest.TestCase):
         self.assertTrue(item["firstSeenAt"])
         self.assertGreaterEqual(item["score"], 60)
 
+    def test_kwork_recommends_common_copywriting_formats(self):
+        page = """<!doctype html><html><body>
+        <div class="project-card"><a href="/projects/3157770/view"><h3>Написать SEO-текст для страницы услуг</h3></a>
+        <div>Подготовить оригинальный текст по техническому заданию.</div><div>Цена: 1200 ₽</div></div>
+        <div class="project-card"><a href="/projects/3157771/view"><h3>Посты для Telegram-канала</h3></a>
+        <div>Нужно подготовить публикации по контент-плану.</div><div>Цена: 900 ₽</div></div>
+        <div class="project-card"><a href="/projects/3157772/view"><h3>Составить коммерческое предложение</h3></a>
+        <div>Написать текст для предложения на основе материалов заказчика.</div><div>Цена: 1500 ₽</div></div>
+        </body></html>"""
+        payload = parse_kwork_html(page, checked_at="2026-10-24T00:00:00Z", previous={"items": []})
+        self.assertEqual(len(payload["items"]), 3)
+        self.assertTrue(all(item["executionCategory"] == "text" for item in payload["items"]))
+        self.assertTrue(all(item["deliverable"] == "готовый текст" for item in payload["items"]))
+
     def test_kwork_parser_refuses_empty_page(self):
         with self.assertRaises(ValueError):
             parse_kwork_html("<html><body>No project cards here</body></html>")
