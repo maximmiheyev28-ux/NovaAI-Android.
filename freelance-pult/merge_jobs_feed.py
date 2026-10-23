@@ -23,6 +23,10 @@ def parse_time(value: str | None) -> dt.datetime | None:
 
 
 def blocked_country_geo(item: dict) -> bool:
+    source = str(item.get("source") or "")
+    # FL.ru projects are not country-tagged; ask the customer about payout/eligibility instead.
+    if source == "FL.ru RSS":
+        return False
     geo = str(item.get("locationText") or "").lower().strip()
     if not geo:
         return False
@@ -30,14 +34,11 @@ def blocked_country_geo(item: dict) -> bool:
         return False
     if re.search(r"europe|european|emea", geo):
         return False
-    explicit = re.compile(
-        r"united states|usa|us only|united kingdom|canada|australia|"
-        r"india|philippines|latin america|latam|north america|singapore|poland|bulgaria",
-        re.I,
-    )
-    if geo in {"uk", "u.k.", "united kingdom"} or explicit.search(geo):
-        return True
-    return bool(re.search(r"(?:^|[,/| ])uk(?:$|[,/| ])", geo))
+    if re.search(r"not specified|location unknown|geography unknown|география не указана|уточни доступность кандидатов из россии|remote[- ]first|^remote$", geo):
+        return False
+    # A country, city, or market-specific cached role must not be resurrected.
+    return True
+
 
 
 def url_key(value: str) -> str:
