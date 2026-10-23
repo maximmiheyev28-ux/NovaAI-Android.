@@ -85,7 +85,6 @@ MOBILE_TITLE_RE = re.compile(
     r"перевод|расшифров|редакт|коррект|ввод данных|заполнение данных|помощник|"
     r"ассистент|виртуальн.{0,12}помощник|постинг|набор текста|редактор|корректор|"
     r"отч[её]т|опубликовать готовую статью|"
-    r"communications professional|communications|customer support|customer service|"
     r"virtual assistant|data entry|translation|translator|transcription|copywriter|"
     r"content writer|proofread|copy edit|spreadsheet|product listing|user research|"
     r"usability testing|game testing|screen recording|record video|research assistant|"
@@ -101,7 +100,11 @@ TECH_HEAVY_TITLE_RE = re.compile(
     r"настроить.{0,20}(?:crm|телефони|интеграц)|автоматизац.{0,20}(?:процесс|ии)|"
     r"конструкторск|черт[её]ж|собрать базу|сбор базы|сбор данных|"
     r"мониторинг цен|парсинг|сбор с сайтов|ландинг|дизайн лендинг|"
-    r"rag|hmi|modbus|интернет-магазин|интеграция.*crm",
+    r"rag|hmi|modbus|интернет-магазин|интеграция.*crm|"
+    r"customer support|customer service|technical support|customer success|support specialist|"
+    r"account executive|sales director|regional sales|product director|"
+    r"customer service rep|communications professional|communications|"
+    r"marketing manager|head of|chief officer",
     re.I,
 )
 CRITICAL_RISKS = [
