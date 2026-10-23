@@ -164,6 +164,20 @@ class CollectorPolicyTests(unittest.TestCase):
         self.assertTrue(too_old_to_carry(too_old_listing, now))
 
 
+    def test_removed_source_is_never_carried_from_old_snapshots(self):
+        self.assertTrue(blocked_cached_item({
+            "source": "FL.ru RSS",
+            "title": "Литературный редактор",
+            "link": "https://www.fl.ru/projects/123/example.html",
+            "locationText": "Worldwide",
+        }))
+        self.assertTrue(blocked_cached_item({
+            "source": "Unknown",
+            "title": "Литературный редактор",
+            "link": "https://sub.fl.ru/projects/123/example.html",
+            "locationText": "Worldwide",
+        }))
+
     def test_cached_country_restrictions_are_removed_but_device_requirements_are_not(self):
         self.assertTrue(blocked_cached_item({"source": "Jobicy", "title": "Content writer", "locationText": "UK"}))
         self.assertTrue(blocked_cached_item({"source": "Remote OK", "title": "Content writer", "locationText": "United States only"}))

@@ -33,7 +33,18 @@ def remove_stale_auto_package(item: dict, now: dt.datetime) -> dict:
 
 
 def blocked_cached_item(item: dict) -> bool:
-    """Reject explicit country/market restrictions, not jobs requiring a computer."""
+    """Reject the removed FL.ru source and explicit country restrictions, not computer-based work."""
+    # Old snapshots may still contain records from the previously configured source.
+    # Drop them by source label or hostname, regardless of title/geography.
+    source = str(item.get("source") or "").strip().lower()
+    link = str(item.get("link") or "").strip().lower()
+    try:
+        host = (urlsplit(link).hostname or "").lower()
+    except ValueError:
+        host = ""
+    if source == "fl.ru rss" or host == "fl.ru" or host.endswith(".fl.ru"):
+        return True
+
     geo = str(item.get("locationText") or "").lower().strip()
     if not geo:
         return False
