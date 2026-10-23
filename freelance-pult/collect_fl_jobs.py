@@ -40,7 +40,7 @@ HIMALAYAS_SEARCHES = [
     ("Himalayas · worldwide · ввод данных", {"q": "data entry", "worldwide": "true", "sort": "recent"}),
     ("Himalayas · worldwide · перевод", {"q": "translation", "worldwide": "true", "sort": "recent"}),
 ]
-HIMALAYAS_API = "https://himalayas.app/jobs/api/search"
+HIMALAYAS_API = "https://himalayas.app/jobs/api"
 USER_AGENT = "FreelancePult/1.0 (+https://github.com/maximmiheyev28-ux/NovaAI-Android.)"
 MAX_ITEMS = 100
 MAX_DESCRIPTION = 1200
@@ -146,7 +146,8 @@ def parse_date(value: str) -> str:
 def from_timestamp(value: Any) -> str:
     if isinstance(value, (int, float)) and value > 0:
         try:
-            return dt.datetime.fromtimestamp(value / 1000, tz=dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+            seconds = value / 1000 if value > 100_000_000_000 else value
+            return dt.datetime.fromtimestamp(seconds, tz=dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         except (OverflowError, OSError, ValueError):
             return ""
     return parse_date(str(value or ""))
@@ -302,12 +303,23 @@ def parse_himalayas_search(name: str, params: dict[str, str]) -> list[dict]:
             continue
 
         restrictions = job.get("locationRestrictions") or []
-        restriction_names = [str(x.get("name") or x.get("alpha2") or "") for x in restrictions if isinstance(x, dict)]
-        restriction_codes = [str(x.get("alpha2") or "").upper() for x in restrictions if isinstance(x, dict)]
-        # An empty locationRestrictions list means worldwide in the API contract.
-        if restrictions and "RU" not in restriction_codes and not any("russia" in s.lower() or "росси" in s.lower() for s in restriction_names):
+        restriction_names = []
+        restriction_codes = []
+        for restriction in restrictions:
+            if isinstance(restriction, dict):
+                name_value = str(restriction.get("name") or restriction.get("country") or restriction.get("alpha2") or "")
+                code_value = str(restriction.get("alpha2") or restriction.get("code") or "").upper()
+            else:
+                name_value = str(restriction or "")
+                code_value = name_value.upper()
+            if name_value:
+                restriction_names.append(name_value)
+            if code_value:
+                restriction_codes.append(code_value)
+        # Empty restrictions means worldwide; non-empty must include Russia.
+        if restrictions and "RU" not in restriction_codes and not any("russia" in name.lower() or "росси" in name.lower() for name in restriction_names):
             continue
-        location_text = "Worldwide (ограничения по странам не указаны)" if not restrictions else ", ".join(restriction_names)
+        location_text = "Worldwide (географические ограничения не указаны)" if not restrictions else ", ".join(restriction_names)
 
         published_at = from_timestamp(job.get("pubDate"))
         expiry_at = from_timestamp(job.get("expiryDate"))
