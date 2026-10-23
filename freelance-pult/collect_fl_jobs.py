@@ -257,6 +257,7 @@ def main() -> int:
             time.sleep(1)
     if successes == 0:
         print("All permitted FL.ru RSS feeds failed; existing jobs.json left untouched.", file=sys.stderr)
+        print(json.dumps({"feeds": feed_status}, ensure_ascii=False), file=sys.stderr)
         return 2
 
     dedup: dict[str, dict] = {}
