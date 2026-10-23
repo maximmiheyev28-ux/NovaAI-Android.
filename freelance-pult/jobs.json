@@ -1,16 +1,31 @@
 {
   "schemaVersion": 1,
-  "source": "Публичные API/RSS: Himalayas, Jobicy, Remote OK, We Work Remotely",
-  "checkedAt": null,
-  "maxAgeNotice": "Серверный сборщик обновляет ленту каждые 30 минут. Проверь оригинальную карточку перед откликом.",
-  "attribution": "Himalayas (himalayas.app), Jobicy (jobicy.com), Remote OK (remoteok.com), We Work Remotely (weworkremotely.com).",
-  "feeds": [],
+  "source": "Kwork manual intake",
+  "checkedAt": "",
+  "maxAgeNotice": "Автоматическая загрузка и отправка откликов отключены. Этот файл намеренно не содержит автоматически собранных объявлений. Выбирайте проекты вручную в официальном интерфейсе Kwork и переносите требования в Фриланс-пульт/ChatGPT.",
+  "attribution": "Актуальность объявления проверяйте непосредственно в официальном интерфейсе Kwork.",
+  "feeds": [
+    {
+      "name": "Manual Kwork intake",
+      "url": "https://kwork.ru/projects",
+      "ok": false,
+      "items": 0,
+      "source": "Kwork"
+    }
+  ],
   "stats": {
+    "sourceListingsFound": 0,
     "fetchedUnique": 0,
+    "freshCandidates": 0,
     "matchedCandidates": 0,
+    "excludedNotExecutable": 0,
     "excludedCriticalRisk": 0,
-    "excludedNoKeywordMatch": 0,
-    "feedErrors": []
+    "excludedClosed": 0,
+    "excludedReasons": {},
+    "carriedFromPrevious": 0,
+    "feedErrors": [
+      "Automatic Kwork collection disabled."
+    ]
   },
   "items": []
 }
