@@ -458,7 +458,7 @@ def parse_himalayas_search(name: str, params: dict[str, str]) -> list[dict]:
 
 
 def job_geo_eligibility(value: Any) -> tuple[bool, str]:
-    """Exclude clearly country-locked roles; visibly flag ambiguous regions."""
+    """Allow only worldwide, Russia/CIS, or clearly broad regions; flag unknown geography."""
     geo = clean_text(str(value or ""))
     lower = geo.lower()
     if not geo:
@@ -468,19 +468,14 @@ def job_geo_eligibility(value: Any) -> tuple[bool, str]:
     if re.search(r"russia|росси|cis|снг", lower):
         return True, geo
     # Broad regions may allow candidates in Russia, but this must be confirmed.
-    if re.search(r"europe|european|emea|europe,|europe and", lower):
+    if re.search(r"europe|european|emea", lower):
         return True, geo + " — уточни, допускаются ли кандидаты, проживающие в РФ."
-    # Explicitly restricted markets are excluded unless the listing separately said Russia/CIS/worldwide.
-    restricted_market = re.compile(
-        r"united states|usa|us only|united kingdom|canada|australia|"
-        r"india|philippines|latin america|latam|north america|singapore|poland|bulgaria",
-        re.I,
-    )
-    if lower.strip() in {"uk", "u.k.", "united kingdom"} or restricted_market.search(lower):
-        return False, geo
-    if re.search(r"(?:^|[,/| ])uk(?:$|[,/| ])", lower):
-        return False, geo
-    return True, geo + " — проверь ограничения по стране перед откликом."
+    # Generic "remote/unknown" location remains a lead with a strong verification note.
+    if re.fullmatch(r"(?:fully\s+)?remote|remote[- ]first|not specified|location not specified|location unknown|гепография не указана|география не указана|уточнить доступность|any location|global remote", lower.strip()):
+        return True, geo + " — проверь страновые ограничения перед откликом."
+    # A specific country/city/market is not treated as eligible unless included above.
+    return False, geo
+
 
 
 def make_remote_record(
