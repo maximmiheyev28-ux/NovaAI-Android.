@@ -84,7 +84,7 @@ MOBILE_TITLE_RE = re.compile(
     r"контент|копирайт|стать|описан|карточк|таблиц|excel|документ|презентац|"
     r"перевод|расшифров|редакт|коррект|ввод данных|заполнение данных|помощник|"
     r"ассистент|виртуальн.{0,12}помощник|постинг|набор текста|редактор|корректор|"
-    r"отч[её]т|собрать базу|сбор базы|сбор данных|опубликовать готовую статью|"
+    r"отч[её]т|опубликовать готовую статью|"
     r"communications professional|communications|customer support|customer service|"
     r"virtual assistant|data entry|translation|translator|transcription|copywriter|"
     r"content writer|proofread|copy edit|spreadsheet|product listing|user research|"
@@ -98,7 +98,10 @@ TECH_HEAVY_TITLE_RE = re.compile(
     r"php|python|java|c\+\+|qt|modbus|linux|opencart|wordpress|"
     r"верстк|дизайн.{0,12}(?:сайт|лендинг|макет)|лендинг|корпоративный сайт|"
     r"веб.?платформ|ии.?агент|ai.?agent|seo.?аудит|seo.?специалист|"
-    r"настроить.{0,20}(?:crm|телефони|интеграц)|автоматизац.{0,20}(?:процесс|ии)",
+    r"настроить.{0,20}(?:crm|телефони|интеграц)|автоматизац.{0,20}(?:процесс|ии)|"
+    r"конструкторск|черт[её]ж|собрать базу|сбор базы|сбор данных|"
+    r"мониторинг цен|парсинг|сбор с сайтов|ландинг|дизайн лендинг|"
+    r"rag|hmi|modbus|интернет-магазин|интеграция.*crm",
     re.I,
 )
 CRITICAL_RISKS = [
@@ -255,11 +258,12 @@ def score_item(title: str, description: str, published_at: str, price_max: int) 
         except (TypeError, ValueError):
             pass
 
+    technical_title = bool(TECH_HEAVY_TITLE_RE.search(title_text))
     if not mobile_title:
         score -= 10
-    if TECH_HEAVY_TITLE_RE.search(title_text) and not mobile_title:
+    if technical_title:
         score -= 24
-        reasons.append("Вероятно требуются специальные навыки или работа за компьютером; оцени свои возможности")
+        reasons.append("Вероятно требуются специальные навыки или работа за компьютером; для работы только с Android это низкий приоритет")
     if risks:
         critical_count = sum(1 for _, message in CRITICAL_RISKS if message in risks)
         score -= 18 * critical_count + 7 * (len(risks) - critical_count)
