@@ -458,13 +458,21 @@ def job_geo_eligibility(value: Any) -> tuple[bool, str]:
         return True, "География не указана — уточни доступность кандидатов из России."
     if re.search(r"worldwide|anywhere|global|all countries|world wide|весь мир|по всему миру|remote from anywhere|любой страны", lower):
         return True, geo + " (всё равно уточни доступность из РФ)"
-    if re.search(r"russia|росси|\\bcis\\b|снг", lower):
+    if re.search(r"russia|росси|cis|снг", lower):
         return True, geo
-    if re.search(r"europe|european|\\bemea\\b", lower):
+    # Broad regions may allow candidates in Russia, but this must be confirmed.
+    if re.search(r"europe|european|emea|europe,|europe and", lower):
         return True, geo + " — уточни, допускаются ли кандидаты, проживающие в РФ."
-    if re.search(r"united states|\\busa\\b|\\bus only\\b|united kingdom|\\buk only\\b|canada only|australia only|india only|philippines only|latin america|north america only|singapore only", lower):
+    # Explicitly restricted markets are excluded unless the listing separately said Russia/CIS/worldwide.
+    restricted_market = re.compile(
+        r"united states|usa|u\\.s\\.|us only|united kingdom|uk only|"
+        r"canada|australia|india|philippines|latin america|latam|"
+        r"north america|singapore|poland|bulgaria",
+        re.I,
+    )
+    if restricted_market.search(lower):
         return False, geo
-    return True, geo + " — проверь ограничения по стране перед откликом."
+    return True, geo + " — проверь ограничения по стране перед отклику."
 
 
 def make_remote_record(
