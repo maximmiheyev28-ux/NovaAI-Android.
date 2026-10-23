@@ -1,4 +1,5 @@
-name: Deploy Freelance Pult
+name: Validate Freelance Pult
+
 on:
   push:
     branches: [main]
@@ -6,30 +7,40 @@ on:
       - 'freelance-pult/**'
       - '.github/workflows/deploy-freelance-pult.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
-  pages: write
-  id-token: write
+
 concurrency:
-  group: pages
+  group: validate-freelance-pult
   cancel-in-progress: true
+
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  validate:
+    name: Validate frontend and collector
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - name: Upload site
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./freelance-pult
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+
+      - name: Compile the Python collector
+        run: python3 -m py_compile freelance-pult/collect_fl_jobs.py
+
+      - name: Check inline JavaScript syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          source = Path("freelance-pult/index.html").read_text(encoding="utf-8")
+          match = re.search(r"<script>([\\s\\S]*?)</script>", source)
+          if not match:
+              raise SystemExit("No inline script found")
+          Path("/tmp/freelance-pult-inline.js").write_text(match.group(1), encoding="utf-8")
+          print("Extracted inline JavaScript for syntax check.")
+          PY
+          node --check /tmp/freelance-pult-inline.js
+
+      - name: Validate bundled JSON
+        run: python3 -m json.tool freelance-pult/jobs.json >/dev/null
