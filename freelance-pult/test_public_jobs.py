@@ -215,6 +215,27 @@ class CollectorPolicyTests(unittest.TestCase):
             parse_kwork_html("<html><body>No project cards here</body></html>")
 
 
+    def test_kwork_state_data_is_parsed_and_scored(self):
+        page = '''<html><title>Биржа проектов - Kwork</title><script>
+        window.stateData = {"wantsListData":{"wants":[
+          {"id":456789,"name":"Перевод описаний товаров с английского",
+           "description":"Нужно перевести 10 описаний карточек товаров и сохранить смысл.",
+           "priceLimit":3000,"wantDates":{"dateCreate":"2026-10-23T23:30:00Z","dateActive":"2026-10-23T23:30:00Z"}}
+        ],"pagination":{"last_page":31}}};
+        </script></html>'''
+        payload = parse_kwork_html(page, checked_at="2026-10-24T00:00:00Z", previous={"items": []})
+        self.assertEqual(payload["source"], "Kwork public projects page")
+        self.assertEqual(len(payload["items"]), 1)
+        item = payload["items"][0]
+        self.assertEqual(item["id"], "kwork-456789")
+        self.assertEqual(item["link"], "https://kwork.ru/projects/456789/view")
+        self.assertEqual(item["title"], "Перевод описаний товаров с английского")
+        self.assertEqual(item["budgetMax"], 3000)
+        self.assertEqual(item["publishedAt"], "2026-10-23T23:30:00Z")
+        self.assertEqual(item["recommendation"], "recommend")
+        self.assertIn("текстовый результат", item["recommendationReason"].lower())
+
+
 class TelegramNotificationPolicyTests(unittest.TestCase):
     def test_only_new_fresh_high_score_recommendations_from_kwork_are_selected(self):
         now = datetime(2026, 10, 24, 0, 0, tzinfo=timezone.utc)
