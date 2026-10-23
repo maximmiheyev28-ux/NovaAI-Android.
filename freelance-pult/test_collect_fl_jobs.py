@@ -1,11 +1,47 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from collect_fl_jobs import job_geo_eligibility, parse_wwr_feed, salary_label, score_item
+from collect_fl_jobs import build_auto_package, job_geo_eligibility, parse_wwr_feed, salary_label, score_item
 from merge_jobs_feed import blocked_cached_item, too_old_to_carry
 
 
 class CollectorPolicyTests(unittest.TestCase):
+    def test_cloud_package_generates_non_claiming_reply_and_usable_plan(self):
+        package = build_auto_package({
+            "title": "Литературный редактор: фрагменты романа",
+            "description": "Нужна литературная редактура нескольких фрагментов.",
+            "link": "https://www.fl.ru/projects/123/example.html",
+            "publishedAt": "2026-10-23T10:00:00Z",
+            "budgetText": "",
+            "locationText": "Уточнить доступность",
+            "paymentCheck": "Способ выплаты не подтверждён.",
+            "riskFlags": [],
+            "score": 96,
+        })
+        self.assertEqual(package["category"], "текст / редактура")
+        self.assertTrue(package["manualReviewRequired"])
+        self.assertIn("Здравствуйте!", package["responseDraft"])
+        self.assertIn("уточнить несколько деталей", package["responseDraft"])
+        self.assertNotIn("многолетний опыт", package["responseDraft"].lower())
+        self.assertIn("ПРОВЕРКА РЕЗУЛЬТАТА", package["workPlan"])
+        self.assertIn("не подтверждён", package["workPlan"])
+        self.assertGreaterEqual(len(package["steps"]), 4)
+        self.assertGreaterEqual(len(package["questions"]), 3)
+
+    def test_cloud_package_flags_desktop_heavy_title(self):
+        package = build_auto_package({
+            "title": "Добавить страницы в презентацию Figma",
+            "description": "Нужны новые страницы в Figma.",
+            "link": "https://www.fl.ru/projects/123/example.html",
+            "publishedAt": "2026-10-23T10:00:00Z",
+            "locationText": "Не указана",
+            "paymentCheck": "Не подтверждено",
+            "riskFlags": [],
+            "score": 30,
+        })
+        self.assertIn("Высокий риск ограничения Android", package["androidAssessment"])
+        self.assertIn("проверь нужные инструменты", package["workPlan"].lower())
+
     def test_we_work_remotely_feed_filters_explicit_local_only_roles_and_warns_for_unknown_geo(self):
         import collect_fl_jobs as collector
 
