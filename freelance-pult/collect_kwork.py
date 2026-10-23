@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch the public first page of Kwork projects and recommend only feasible deliverables."""
+"""Fetch five public pages of Kwork projects and recommend only feasible deliverables."""
 from __future__ import annotations
 import argparse,datetime as dt,html,json,re,sys,urllib.error,urllib.request
 from html.parser import HTMLParser
@@ -252,8 +252,43 @@ def parse_kwork_html(page,checked_at=None,previous=None):
    "excludedReasons":excluded_reasons,"carriedFromPrevious":0,"feedErrors":[]},"items":out,
   "diagnostics":{"excludedExamples":excluded_examples,"excludedReasons":excluded_reasons}}
 
-def fetch_page():
- req=urllib.request.Request(URL,headers={"User-Agent":UA,"Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"ru,en;q=0.7"})
+def page_listing_ids(page):
+ rows=structured_projects(page)
+ if rows:return {str(row["pid"]) for row in rows}
+ parser=Parser();parser.feed(page);parser.close()
+ return {pid for pid,_,_,_ in links(parser)}
+
+def parse_kwork_pages(pages,checked_at=None,previous=None):
+ if not pages:raise ValueError("No Kwork pages were fetched.")
+ stamp=checked_at or now_iso()
+ all_listing_ids=set();listing_count=0;items_by_id={}
+ excluded_reasons={};excluded_examples=[]
+ totals={"excludedNotExecutable":0,"excludedCriticalRisk":0,"excludedClosed":0}
+ for number,page in enumerate(pages,1):
+  page_ids=page_listing_ids(page)
+  if not page_ids:raise ValueError("Kwork page "+str(number)+" has no parseable public project listings.")
+  listing_count+=len(page_ids);all_listing_ids.update(page_ids)
+  payload=parse_kwork_html(page,checked_at=stamp,previous=previous)
+  for item in payload["items"]:
+   key=str(item.get("kworkProjectId") or item.get("id") or "")
+   if key:items_by_id.setdefault(key,item)
+  stats=payload["stats"]
+  for key in totals:totals[key]+=int(stats.get(key) or 0)
+  for reason,count in (stats.get("excludedReasons") or {}).items():
+   excluded_reasons[reason]=excluded_reasons.get(reason,0)+int(count or 0)
+  excluded_examples.extend(payload.get("diagnostics",{}).get("excludedExamples",[]))
+ items=sorted(items_by_id.values(),key=lambda x:(x.get("score",0),x.get("publishedAt") or "",-int(x.get("proposalCount") or 999)),reverse=True)
+ return {"schemaVersion":1,"source":"Kwork public projects page","checkedAt":stamp,
+  "maxAgeNotice":"Обновляется каждые 30 минут по первым "+str(len(pages))+" публичным страницам общего списка Kwork /projects. Это не полный каталог. Если дата публикации отсутствует, показывается время первого обнаружения. Рекомендация означает, что результат можно подготовить доступными инструментами ChatGPT; это не гарантия найма или оплаты.",
+  "attribution":"Источник: публичные страницы проектов Kwork (https://kwork.ru/projects). Открой оригинал перед откликом.",
+  "feeds":[{"name":"Kwork public projects pages","url":URL,"ok":True,"items":len(all_listing_ids),"pages":len(pages),"source":"Kwork"}],
+  "stats":{"sourceListingsFound":listing_count,"fetchedUnique":len(all_listing_ids),"freshCandidates":len(items),"matchedCandidates":len(items),
+   **totals,"excludedReasons":excluded_reasons,"carriedFromPrevious":0,"feedErrors":[]},
+  "items":items,"diagnostics":{"excludedExamples":excluded_examples[:20],"excludedReasons":excluded_reasons}}
+
+def fetch_page(page=1):
+ page_url=URL if int(page)<=1 else URL+"?page="+str(int(page))
+ req=urllib.request.Request(page_url,headers={"User-Agent":UA,"Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"ru,en;q=0.7"})
  with urllib.request.urlopen(req,timeout=30) as r:
   host=(urlsplit(r.geturl()).hostname or "").lower()
   if not(host=="kwork.ru" or host.endswith(".kwork.ru")):raise RuntimeError("Public request redirected away from Kwork.")
@@ -264,7 +299,8 @@ def main():
  p=argparse.ArgumentParser();p.add_argument("--output",default="freelance-pult/jobs.json");p.add_argument("--previous",default="/tmp/previous-jobs.json");a=p.parse_args()
  try:
   prev=json.loads(Path(a.previous).read_text(encoding="utf-8")) if Path(a.previous).exists() else {}
-  payload=parse_kwork_html(fetch_page(),previous=prev)
+  pages=[fetch_page(n) for n in range(1,6)]
+  payload=parse_kwork_pages(pages,previous=prev)
  except (urllib.error.URLError,urllib.error.HTTPError,TimeoutError,OSError,RuntimeError,ValueError,json.JSONDecodeError) as e:
   print(f"Kwork feed not refreshed: {type(e).__name__}: {str(e)[:240]}",file=sys.stderr);return 2
  diagnostics=payload.pop("diagnostics",{})
