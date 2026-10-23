@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from collect_public_jobs import build_auto_package, is_fresh_for_auto_package, job_geo_eligibility, parse_wwr_feed, salary_label, score_item
-from collect_kwork import parse_kwork_html
+from collect_kwork import parse_kwork_html, parse_kwork_pages
 from merge_jobs_feed import blocked_cached_item, remove_stale_auto_package, too_old_to_carry
 from notify_telegram import select_new_items
 
@@ -227,6 +227,21 @@ class CollectorPolicyTests(unittest.TestCase):
     def test_kwork_parser_refuses_empty_page(self):
         with self.assertRaises(ValueError):
             parse_kwork_html("<html><body>No project cards here</body></html>")
+
+    def test_kwork_combines_recommendations_from_five_pages(self):
+        pages = []
+        for number in range(1, 6):
+            pages.append(f"""<!doctype html><html><body>
+            <div class="project-card"><a href="/projects/315780{number}/view"><h3>Перевод описаний товаров {number}</h3></a>
+            <div>Перевести описания карточек товаров с английского без потери смысла.</div>
+            <div>Цена: 1000 ₽</div><div>Осталось: 1 д.</div></div>
+            </body></html>""")
+        payload = parse_kwork_pages(pages, checked_at="2026-10-24T00:00:00Z", previous={"items": []})
+        self.assertEqual(len(payload["items"]), 5)
+        self.assertEqual(payload["stats"]["fetchedUnique"], 5)
+        self.assertEqual(payload["feeds"][0]["pages"], 5)
+        self.assertEqual({item["kworkProjectId"] for item in payload["items"]},
+                         {f"315780{number}" for number in range(1, 6)})
 
     def test_kwork_excludes_cad_drafting_but_allows_a_writable_greeting(self):
         page = """<!doctype html><html><body>
