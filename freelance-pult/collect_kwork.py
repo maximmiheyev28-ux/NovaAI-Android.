@@ -86,12 +86,12 @@ def get_budget(t):
 def classify(title,t):
  title_text=title.lower()
  whole=title+"\n"+t
- if OUT.search(whole):return None,"",""
+ if OUT.search(whole):return None,"excluded_by_out_of_scope_filter",""
  # Prefer intent visible in the title. Description-only matches are a fallback
  # only for titles that do not identify a work type.
  title_matches=[name for name,pat in ABILITY if pat.search(title_text)]
  found=title_matches or [name for name,pat in ABILITY if pat.search(t)]
- if not found:return None,"",""
+ if not found:return None,"no_supported_deliverable_match",""
  # Long custom website development is not an honest recommendation unless the
  # actual deliverable can be generated without platform/account access.
  c=found[0]
@@ -198,18 +198,26 @@ def parse_kwork_html(page,checked_at=None,previous=None):
    "; title="+repr(title_text)+"; stateData="+str("window.stateData" in page)+
    "; pathMentions="+str(page.lower().count("/projects/"))+"; hrefSamples="+repr(project_paths[:8]))
  prior={str(i.get("link","")).rstrip("/"):i for i in (previous or {}).get("items",[]) if isinstance(i,dict)}
- items={};skip=0;risks_n=0
+ items={};skip=0;risks_n=0;closed_n=0
+ excluded_reasons={};excluded_examples=[]
+ def note_exclusion(reason,row):
+  excluded_reasons[reason]=excluded_reasons.get(reason,0)+1
+  if len(excluded_examples)<20:
+   excluded_examples.append({"id":str(row.get("pid") or "")[:32],"title":str(row.get("title") or "")[:200],"reason":reason})
  for row in raw_records:
   pid=row["pid"]
   if pid in items:continue
   title=row["title"]; txt=row["text"]; description=row["description"]
   category,reason,deliverable=classify(title,txt)
-  if not category:skip+=1;continue
+  if not category:
+   skip+=1;note_exclusion(reason or "no_supported_deliverable_match",row);continue
   published=row["publishedAt"]
   low=row["budgetMin"];high=row["budgetMax"];budget_text=row["budgetText"]
   _,_,riskflags,_,critical=score_item(title,txt,published,high)
-  if critical or RISK.search(title+"\n"+txt):risks_n+=1;continue
-  if row["closed"]:continue
+  if critical or RISK.search(title+"\n"+txt):
+   risks_n+=1;note_exclusion("critical_or_high_risk",row);continue
+  if row["closed"]:
+   closed_n+=1;note_exclusion("closed_listing",row);continue
   titlepat=next(pat for name,pat in ABILITY if name==category)
   score=72 if titlepat.search(title) else 64
   if high:score+=7
@@ -240,7 +248,9 @@ def parse_kwork_html(page,checked_at=None,previous=None):
   "attribution":"Источник: публичная страница проектов Kwork (https://kwork.ru/projects). Открой оригинал перед откликом.",
   "feeds":[{"name":"Kwork public projects page","url":URL,"ok":True,"items":len(raw_records),"source":"Kwork"}],
   "stats":{"sourceListingsFound":len(raw_records),"fetchedUnique":len(raw_records),"freshCandidates":len(out),"matchedCandidates":len(out),
-   "excludedNotExecutable":skip,"excludedCriticalRisk":risks_n,"carriedFromPrevious":0,"feedErrors":[]},"items":out}
+   "excludedNotExecutable":skip,"excludedCriticalRisk":risks_n,"excludedClosed":closed_n,
+   "excludedReasons":excluded_reasons,"carriedFromPrevious":0,"feedErrors":[]},"items":out,
+  "diagnostics":{"excludedExamples":excluded_examples,"excludedReasons":excluded_reasons}}
 
 def fetch_page():
  req=urllib.request.Request(URL,headers={"User-Agent":UA,"Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"ru,en;q=0.7"})
@@ -257,6 +267,9 @@ def main():
   payload=parse_kwork_html(fetch_page(),previous=prev)
  except (urllib.error.URLError,urllib.error.HTTPError,TimeoutError,OSError,RuntimeError,ValueError,json.JSONDecodeError) as e:
   print(f"Kwork feed not refreshed: {type(e).__name__}: {str(e)[:240]}",file=sys.stderr);return 2
+ diagnostics=payload.pop("diagnostics",{})
  out=Path(a.output);out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
- print(json.dumps(payload["stats"],ensure_ascii=False));print(f"Wrote {len(payload['items'])} Kwork recommendations to {out}");return 0
+ print("Kwork stats: "+json.dumps(payload["stats"],ensure_ascii=False))
+ print("Kwork exclusion diagnostics (titles are logged only, not published): "+json.dumps(diagnostics,ensure_ascii=False))
+ print(f"Wrote {len(payload['items'])} Kwork recommendations to {out}");return 0
 if __name__=="__main__":raise SystemExit(main())
