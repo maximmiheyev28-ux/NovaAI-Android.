@@ -41,7 +41,7 @@ def blocked_cached_item(item: dict) -> bool:
         return False
     if re.search(r"europe|european|emea", geo):
         return False
-    if re.search(r"not specified|location unknown|geography unknown|география не указана|уточн|не подтвержд|remote[- ]first|^remote$", geo):
+    if re.search(r"not specified|location unknown|geography unknown|unknown|не указана|не указан|не указано|география не указана|уточн|не подтвержд|remote[- ]first|^remote$", geo):
         return False
     return True
 
