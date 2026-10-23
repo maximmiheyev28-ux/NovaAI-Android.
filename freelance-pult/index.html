@@ -75,7 +75,7 @@ let db=readDB();function readDB(){try{return JSON.parse(localStorage.getItem(KEY
 function go(t){document.querySelectorAll(".page").forEach(e=>e.classList.toggle("active",e.id==="p-"+t));document.querySelectorAll("[data-tab]").forEach(e=>e.classList.toggle("active",e.dataset.tab===t));scrollTo({top:0,behavior:"smooth"});renderAll()}document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>go(b.dataset.tab));
 function formOpen(o=null){document.getElementById("formbox").classList.remove("hide");document.getElementById("formtitle").textContent=o?"Изменить заказ":"Добавить лид";const vals={oid:o?.id||"",title:o?.title||"",platform:o?.platform||"FL.ru",status:o?.status||"new",price:o?.price||"",due:o?.due||"",link:o?.link||"",notes:o?.notes||""};Object.entries(vals).forEach(([k,v])=>document.getElementById(k).value=v)}function formClose(){document.getElementById("formbox").classList.add("hide");document.getElementById("orderform").reset();document.getElementById("oid").value=""}
 document.getElementById("orderform").onsubmit=e=>{e.preventDefault();let old=document.getElementById("oid").value,o={id:old||uid(),title:document.getElementById("title").value.trim(),platform:document.getElementById("platform").value,status:document.getElementById("status").value,price:+document.getElementById("price").value||0,due:document.getElementById("due").value,link:document.getElementById("link").value.trim(),notes:document.getElementById("notes").value.trim()};let i=db.orders.findIndex(x=>x.id===old);i<0?db.orders.unshift(o):db.orders[i]=o;formClose();save()};
-function card(o){let u=safeurl(o.link),a=o.fit!==undefined?'<span class="badge">Подходящее совпадение: '+esc(o.fit)+'%</span> '+(o.risks&&o.risks.length?'<span class="badge">'+esc(o.risks.length)+' предупрежд.</span>':''):"";return '<article class="item"><div class="top"><div><h3>'+esc(o.title)+'</h3><div class="meta">'+esc(o.platform)+(o.due?" · срок: "+esc(o.due):"")+'</div></div><span class="badge">'+esc(labels[o.status])+'</span></div>'+(a?'<div class="subnav">'+a+'</div>':"")+'<p>'+esc(o.notes||"Заметок нет.")+'</p>'+(o.risks&&o.risks.length?'<p class="meta">Предупреждения: '+esc(o.risks.join("; "))+'</p>':"")+'<b>'+rub(o.price)+'</b> '+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">Открыть ↗</a>':"")+'<div class="subnav"><button class="secondary small" onclick="formOpen(db.orders.find(x=>x.id===\''+o.id+'\'))">Изменить</button><select class="small" onchange="statusChange(\''+o.id+'\',this.value)">'+Object.entries(labels).map(([k,v])=>'<option value="'+k+'" '+(k===o.status?'selected':'')+'>'+v+'</option>').join("")+'</select><button class="danger small" onclick="delOrder(\''+o.id+'\')">Удалить</button></div></article>'}
+function card(o){let u=safeurl(o.link),a=o.fit!==undefined?'<span class="badge">Подходящее совпадение: '+esc(o.fit)+'%</span> '+(o.risks&&o.risks.length?'<span class="badge">'+esc(o.risks.length)+' предупрежд.</span>':''):"";return '<article class="item"><div class="top"><div><h3>'+esc(o.title)+'</h3><div class="meta">'+esc(o.platform)+(o.due?" · срок: "+esc(o.due):"")+'</div></div><span class="badge">'+esc(labels[o.status])+'</span></div>'+(a?'<div class="subnav">'+a+'</div>':"")+'<p>'+esc(o.notes||"Заметок нет.")+'</p>'+(o.risks&&o.risks.length?'<p class="meta">Предупреждения: '+esc(o.risks.join("; "))+'</p>':"")+'<b>'+rub(o.price)+'</b> '+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">Открыть ↗</a>':"")+'<div class="subnav"><button class="secondary small" onclick="transferToChatGPT(\'order\',\''+o.id+'\')">Передать в ChatGPT ↗</button><button class="secondary small" onclick="formOpen(db.orders.find(x=>x.id===\''+o.id+'\'))">Изменить</button><select class="small" onchange="statusChange(\''+o.id+'\',this.value)">'+Object.entries(labels).map(([k,v])=>'<option value="'+k+'" '+(k===o.status?'selected':'')+'>'+v+'</option>').join("")+'</select><button class="danger small" onclick="delOrder(\''+o.id+'\')">Удалить</button></div></article>'}
 function filtered(){let f=document.getElementById("filter")?.value||"all";return db.orders.filter(o=>f==="all"||f==="open"?f==="all"||["new","sent","talk","active"].includes(o.status):f==="wait"?o.status==="wait":o.status==="paid")}
 function renderOrders(){let a=filtered();document.getElementById("orders").innerHTML=a.length?a.map(card).join(""):'<div class="empty">Пока нет заказов. Добавь первый найденный проект.</div>'}
 function statusChange(i,s){let o=db.orders.find(x=>x.id===i);if(o){o.status=s;save()}}function delOrder(i){if(confirm("Удалить заказ?")){db.orders=db.orders.filter(x=>x.id!==i);save()}}
@@ -244,7 +244,7 @@ function renderLiveJobs(){
  if(!jobsFeedItems.length){box.innerHTML='<div class="empty">В последней выборке нет подходящих объявлений. Открой Jobicy, Remote OK, Himalayas, We Work Remotely или FL.ru, либо повтори обновление позже.</div>';return}
  box.innerHTML=jobsFeedItems.slice(0,10).map(j=>{
   const url=safeurl(j.link),risk=Array.isArray(j.riskFlags)?j.riskFlags:[],fitReasons=Array.isArray(j.fitReasons)?j.fitReasons.slice(0,3):[],budget=esc(j.budgetText||"не указан"),deadline=esc(j.deadlineHint||"не распознан");
-  return '<article class="item"><div class="top"><div><h3>'+esc(j.title)+'</h3><div class="meta">'+esc(j.source||j.feedName||"Открытая лента")+' · '+feedDate(j.publishedAt)+(j.publishedAt?' · '+jobFreshness(j.publishedAt):' · дата публикации не подтверждена')+(j.cachedFromAt?' · сохранено из прошлой выборки с '+feedDate(j.cachedFromAt):'')+'</div></div><span class="badge">'+Math.max(0,Math.min(100,Number(j.score)||0))+'/100</span></div><p>'+esc((j.description||"Описание доступно на странице проекта.").slice(0,480))+'</p><div class="meta">Бюджет: '+budget+' · Срок: '+deadline+'</div>'+(j.companyName?'<div class="meta">Компания: '+esc(j.companyName)+'</div>':'')+(j.locationText?'<div class="meta">География: '+esc(j.locationText)+'</div>':'')+(j.employmentType?'<div class="meta">Тип занятости: '+esc(j.employmentType)+(j.seniority?' · '+esc(j.seniority):'')+'</div>':'')+(j.paymentCheck?'<p class="meta">'+esc(j.paymentCheck)+'</p>':'')+(fitReasons.length?'<p class="meta">Оценка соответствия: '+esc(fitReasons.join("; "))+'</p>':'')+(j.autoPackage?'<details style="border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0"><summary>Облачный черновик и план</summary><p><b>Черновик отклика</b></p><pre style="white-space:pre-wrap">'+esc(j.autoPackage.responseDraft||"")+'</pre><p><b>План выполнения</b></p><pre style="white-space:pre-wrap">'+esc(j.autoPackage.workPlan||"")+'</pre></details>':'')+(risk.length?'<p class="meta" style="color:var(--warn)">Предупреждение: '+esc(risk.join("; "))+'</p>':"")+'<div class="actions" style="margin-top:10px">'+(url?'<a class="btn secondary small" href="'+esc(url)+'" target="_blank" rel="noopener">'+(j.source==="Himalayas"?"Открыть на Himalayas ↗":j.source==="Jobicy"?"Открыть на Jobicy ↗":j.source==="Remote OK"?"Открыть на Remote OK ↗":j.source==="We Work Remotely"?"Открыть на We Work Remotely ↗":"Открыть проект ↗")+'</a>':"")+'<button class="small" onclick="saveFeedJob(\''+esc(j.id)+'\')">Сохранить</button><button class="secondary small" onclick="draftFeedJob(\''+esc(j.id)+'\')">Черновик отклика</button><button class="secondary small" onclick="prepareLeadPack(\''+esc(j.id)+'\')">Пакет + план</button></div></article>';
+  return '<article class="item"><div class="top"><div><h3>'+esc(j.title)+'</h3><div class="meta">'+esc(j.source||j.feedName||"Открытая лента")+' · '+feedDate(j.publishedAt)+(j.publishedAt?' · '+jobFreshness(j.publishedAt):' · дата публикации не подтверждена')+(j.cachedFromAt?' · сохранено из прошлой выборки с '+feedDate(j.cachedFromAt):'')+'</div></div><span class="badge">'+Math.max(0,Math.min(100,Number(j.score)||0))+'/100</span></div><p>'+esc((j.description||"Описание доступно на странице проекта.").slice(0,480))+'</p><div class="meta">Бюджет: '+budget+' · Срок: '+deadline+'</div>'+(j.companyName?'<div class="meta">Компания: '+esc(j.companyName)+'</div>':'')+(j.locationText?'<div class="meta">География: '+esc(j.locationText)+'</div>':'')+(j.employmentType?'<div class="meta">Тип занятости: '+esc(j.employmentType)+(j.seniority?' · '+esc(j.seniority):'')+'</div>':'')+(j.paymentCheck?'<p class="meta">'+esc(j.paymentCheck)+'</p>':'')+(fitReasons.length?'<p class="meta">Оценка соответствия: '+esc(fitReasons.join("; "))+'</p>':'')+(j.autoPackage?'<details style="border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0"><summary>Облачный черновик и план</summary><p><b>Черновик отклика</b></p><pre style="white-space:pre-wrap">'+esc(j.autoPackage.responseDraft||"")+'</pre><p><b>План выполнения</b></p><pre style="white-space:pre-wrap">'+esc(j.autoPackage.workPlan||"")+'</pre></details>':'')+(risk.length?'<p class="meta" style="color:var(--warn)">Предупреждение: '+esc(risk.join("; "))+'</p>':"")+'<div class="actions" style="margin-top:10px">'+(url?'<a class="btn secondary small" href="'+esc(url)+'" target="_blank" rel="noopener">'+(j.source==="Himalayas"?"Открыть на Himalayas ↗":j.source==="Jobicy"?"Открыть на Jobicy ↗":j.source==="Remote OK"?"Открыть на Remote OK ↗":j.source==="We Work Remotely"?"Открыть на We Work Remotely ↗":"Открыть проект ↗")+'</a>':"")+'<button class="secondary small" onclick="transferToChatGPT(\'feed\',\''+esc(j.id)+'\')">Передать в ChatGPT ↗</button><button class="small" onclick="saveFeedJob(\''+esc(j.id)+'\')">Сохранить</button><button class="secondary small" onclick="draftFeedJob(\''+esc(j.id)+'\')">Черновик отклика</button><button class="secondary small" onclick="prepareLeadPack(\''+esc(j.id)+'\')">Пакет + план</button></div></article>';
  }).join("");
 }
 async function refreshJobsFeed(manual=false){
@@ -269,6 +269,45 @@ async function refreshJobsFeed(manual=false){
  if(status)status.textContent="ошибка загрузки";
  if(!jobsFeedData){const meta=document.getElementById("jobsFeedMeta");if(meta)meta.textContent="Не удалось загрузить RSS-выборку: "+String(lastError||"неизвестная ошибка");}
  renderLiveJobs();
+}
+async function transferToChatGPT(kind,id){
+ let item=null,title="",description="",url="",budget="",due="",source="";
+ if(kind==="feed"){
+  item=jobsFeedItems.find(x=>String(x.id)===String(id));
+  if(!item){alert("Объявление уже не загружено. Обнови ленту.");return}
+  title=String(item.title||"Без названия");description=String(item.description||"Описание не указано.");
+  url=safeurl(item.link);budget=String(item.budgetText||"не указан");due=String(item.deadlineHint||"не распознан");source=String(item.source||item.feedName||"публичная лента");
+ }else{
+  item=db.orders.find(x=>String(x.id)===String(id));
+  if(!item){alert("Заказ не найден.");return}
+  title=String(item.title||"Без названия");description=String(item.notes||"Описание не указано.");
+  url=safeurl(item.link);budget=item.price?rub(item.price):"не указан";due=String(item.due||"не указан");source=String(item.platform||"площадка");
+ }
+ const payload=[
+  "Помоги выполнить фриланс-заказ. Проверь требования и риски, затем подготовь результат по доступным материалам. Не выдумывай факты; если исходных данных недостаточно, задай необходимые уточняющие вопросы. В конце перечисли, что проверить перед сдачей.",
+  "",
+  "Название: "+title,
+  "Источник: "+source,
+  "Ссылка: "+(url||"не указана"),
+  "Бюджет: "+budget,
+  "Срок: "+due,
+  "",
+  "Описание/требования:",
+  description.slice(0,7000)
+ ].join("\n");
+ try{
+  if(navigator.share){
+   await navigator.share({title:"Задание для ChatGPT: "+title,text:payload});
+   return;
+  }
+ }catch(e){if(e&&e.name==="AbortError")return}
+ try{
+  await navigator.clipboard.writeText(payload);
+  alert("Задание скопировано. Откроется ChatGPT — вставь текст в поле сообщения.");
+  window.open("https://chatgpt.com/","_blank","noopener");
+ }catch(e){
+  prompt("Скопируй задание и передай его в ChatGPT:",payload);
+ }
 }
 function saveFeedJob(id){
  const j=jobsFeedItems.find(x=>x.id===id);if(!j)return;
