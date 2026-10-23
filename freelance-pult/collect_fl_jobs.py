@@ -93,7 +93,7 @@ MOBILE_TITLE_RE = re.compile(
     re.I,
 )
 ANDROID_UNSUITABLE_TITLE_RE = re.compile(
-    r"figma|photoshop|illustrator|autocad|premiere\\s*pro|after\\s*effects|solidworks|revit|blender|3ds\\s*max",
+    r"figma|photoshop|illustrator|autocad|premiere.?pro|after.?effects|solidworks|revit|blender|3ds.?max",
     re.I,
 )
 TECH_HEAVY_TITLE_RE = re.compile(
