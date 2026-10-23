@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -19,6 +20,24 @@ def parse_time(value: str | None) -> dt.datetime | None:
         return parsed.astimezone(dt.timezone.utc)
     except (TypeError, ValueError):
         return None
+
+
+def blocked_country_geo(item: dict) -> bool:
+    geo = str(item.get("locationText") or "").lower().strip()
+    if not geo:
+        return False
+    if re.search(r"worldwide|anywhere|global|весь мир|по всему миру|russia|росси|cis|снг", geo):
+        return False
+    if re.search(r"europe|european|emea", geo):
+        return False
+    explicit = re.compile(
+        r"united states|usa|us only|united kingdom|canada|australia|"
+        r"india|philippines|latin america|latam|north america|singapore|poland|bulgaria",
+        re.I,
+    )
+    if geo in {"uk", "u.k.", "united kingdom"} or explicit.search(geo):
+        return True
+    return bool(re.search(r"(?:^|[,/| ])uk(?:$|[,/| ])", geo))
 
 
 def url_key(value: str) -> str:
@@ -66,6 +85,9 @@ def main() -> int:
     previous_items = previous.get("items") or []
     for original in previous_items:
         if not isinstance(original, dict) or not original.get("link") or original.get("criticalRisk"):
+            continue
+        # Apply current geography policy to cached entries too; do not resurrect restricted markets.
+        if blocked_country_geo(original):
             continue
         key = url_key(str(original["link"]))
         if key in fresh_map:
