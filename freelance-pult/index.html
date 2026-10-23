@@ -14,9 +14,9 @@
 <nav class="nav"><button class="active" data-tab="home">Обзор</button><button data-tab="orders">Заказы</button><button data-tab="reply">Отклик</button><button data-tab="money">Деньги</button><button data-tab="more">Данные</button></nav>
 <section id="p-home" class="page active">
 <div class="heading"><h2>Быстрый старт</h2></div><div class="actions"><a class="btn secondary" href="https://www.fl.ru/projects/" target="_blank" rel="noopener">Найти заказ ↗</a><a class="btn secondary" href="https://www.fl.ru/" target="_blank" rel="noopener">Профиль FL.ru ↗</a><button onclick="go('reply')">Составить отклик</button></div>
-<div class="heading"><h2>Свежие проекты FL.ru</h2><span id="jobsFeedStatus" class="badge">подключение…</span></div>
-<div class="card"><p>Лента собирается из публичного RSS FL.ru по расписанию примерно раз в 6 часов. Это подборка по ключевым словам, а не гарантия, что заказчик ещё ищет исполнителя. Открой страницу и проверь условия перед откликом.</p>
-<div class="actions"><button onclick="refreshJobsFeed(true)">Обновить ленту</button><a class="btn secondary" href="https://www.fl.ru/rss/all.xml" target="_blank" rel="noopener">Открыть RSS ↗</a><a class="btn secondary" href="https://www.fl.ru/projects/" target="_blank" rel="noopener">Все проекты ↗</a></div>
+<div class="heading"><h2>Свежие удалённые заказы</h2><span id="jobsFeedStatus" class="badge">подключение…</span></div>
+<div class="card"><p>Подборка обновляется автоматически примерно раз в сутки из открытого API Himalayas и публичного RSS FL.ru, когда он доступен. Учитываем ограничения географии: показываем вакансии для России или worldwide. Источники не подтверждают возможность вывода на российскую карту — это нужно уточнить до отклика.</p>
+<div class="actions"><button onclick="refreshJobsFeed(true)">Обновить ленту</button><a class="btn secondary" href="https://himalayas.app/" target="_blank" rel="noopener">Источник Himalayas ↗</a><a class="btn secondary" href="https://www.fl.ru/rss/all.xml" target="_blank" rel="noopener">RSS FL.ru ↗</a><a class="btn secondary" href="https://www.fl.ru/projects/" target="_blank" rel="noopener">Все проекты ↗</a></div>
 <div id="jobsFeedMeta" class="meta" style="margin-top:10px"></div><div id="liveJobs" class="list" style="margin-top:10px"><div class="empty">Загружаю последние объявления…</div></div></div>
 <div class="heading"><h2>Недавние заказы</h2><button class="secondary small" onclick="go('orders')">Все →</button></div><div id="recent" class="list"></div>
 <div class="heading"><h2>Рабочий автопроцесс</h2><span class="badge">на сегодня</span></div>
@@ -30,7 +30,7 @@
 <div class="field"><label>Текст объявления (для подготовки отклика)</label><textarea id="quickText" placeholder="Вставь требования заказчика"></textarea></div>
 <div class="actions"><button class="secondary" onclick="pasteJobClipboard()">Вставить из буфера</button><button onclick="quickSave()">Сохранить заказ</button><button class="secondary" onclick="quickPrepareReply()">Подготовить отклик</button></div></div>
 <div class="card"><h3>Автооценка объявления</h3><p>Вставь текст объявления в поле выше и нажми кнопку. Панель проверит тематическое соответствие, возможные признаки мошенничества и попробует извлечь бюджет и срок. Проверка работает локально и не открывает объявление по ссылке.</p><div class="actions"><button class="secondary" onclick="analyzeQuickJob()">Оценить объявление</button><button class="secondary" onclick="quickPrepareReply()">Оценить и подготовить отклик</button></div><div id="jobAnalysis" class="hide" style="margin-top:12px"></div></div>
-<div class="note">Это панель учёта, а не бот заработка. Она не создаёт аккаунты, не читает FL.ru автоматически и не отправляет отклики. Клиенты и доход не гарантированы.</div>
+<div class="note">Сборщик читает открытые API/RSS, но не входит в аккаунты площадок, не обходит блокировки, не отправляет отклики и не проводит выплаты. Вакансия может быть уже закрыта; проверяй её на исходном сайте. Клиенты и доход не гарантированы.</div>
 <div class="card"><h3>🛡️ Не теряй деньги</h3><p>Работай через безопасную сделку площадки, когда это доступно. Не плати за «активацию вывода», не переходи к подозрительным ссылкам и не сообщай коды из SMS, пароль или CVV.</p></div>
 </section>
 <section id="p-orders" class="page"><div class="heading"><div><h2>Мои заказы</h2><div class="meta">Автосохранение на устройстве</div></div><button onclick="formOpen()">＋ Заказ</button></div>
@@ -94,7 +94,7 @@ function renderLiveJobs(){
  if(!jobsFeedItems.length){box.innerHTML='<div class="empty">В последней выборке нет объявлений, прошедших фильтр. Открой полную ленту FL.ru или повтори обновление позже.</div>';return}
  box.innerHTML=jobsFeedItems.slice(0,10).map(j=>{
   const url=safeurl(j.link),risk=Array.isArray(j.riskFlags)?j.riskFlags:[],budget=esc(j.budgetText||"не указан"),deadline=esc(j.deadlineHint||"не распознан");
-  return '<article class="item"><div class="top"><div><h3>'+esc(j.title)+'</h3><div class="meta">'+esc(j.feedName||"FL.ru RSS")+' · '+feedDate(j.publishedAt)+'</div></div><span class="badge">'+Math.max(0,Math.min(100,Number(j.score)||0))+'/100</span></div><p>'+esc((j.description||"Описание доступно на странице проекта.").slice(0,480))+'</p><div class="meta">Бюджет: '+budget+' · Срок: '+deadline+'</div>'+(risk.length?'<p class="meta" style="color:var(--warn)">Предупреждение: '+esc(risk.join("; "))+'</p>':"")+'<div class="actions" style="margin-top:10px">'+(url?'<a class="btn secondary small" href="'+esc(url)+'" target="_blank" rel="noopener">Открыть проект ↗</a>':"")+'<button class="small" onclick="saveFeedJob(\''+esc(j.id)+'\')">Сохранить</button><button class="secondary small" onclick="draftFeedJob(\''+esc(j.id)+'\')">Черновик отклика</button></div></article>';
+  return '<article class="item"><div class="top"><div><h3>'+esc(j.title)+'</h3><div class="meta">'+esc(j.source||j.feedName||"Открытая лента")+' · '+feedDate(j.publishedAt)+'</div></div><span class="badge">'+Math.max(0,Math.min(100,Number(j.score)||0))+'/100</span></div><p>'+esc((j.description||"Описание доступно на странице проекта.").slice(0,480))+'</p><div class="meta">Бюджет: '+budget+' · Срок: '+deadline+'</div>'+(risk.length?'<p class="meta" style="color:var(--warn)">Предупреждение: '+esc(risk.join("; "))+'</p>':"")+'<div class="actions" style="margin-top:10px">'+(url?'<a class="btn secondary small" href="'+esc(url)+'" target="_blank" rel="noopener">Открыть проект ↗</a>':"")+'<button class="small" onclick="saveFeedJob(\''+esc(j.id)+'\')">Сохранить</button><button class="secondary small" onclick="draftFeedJob(\''+esc(j.id)+'\')">Черновик отклика</button></div></article>';
  }).join("");
 }
 async function refreshJobsFeed(manual=false){
@@ -121,14 +121,14 @@ async function refreshJobsFeed(manual=false){
 function saveFeedJob(id){
  const j=jobsFeedItems.find(x=>x.id===id);if(!j)return;
  const url=safeurl(j.link);if(db.orders.some(o=>url&&safeurl(o.link)===url)){alert("Этот проект уже есть в твоих заказах.");return}
- db.orders.unshift({id:uid(),title:String(j.title||"Проект FL.ru").slice(0,150),platform:"FL.ru",status:"new",price:Math.max(0,Number(j.budgetMin)||0),due:String(j.deadlineHint||""),link:url,notes:String(j.description||"").slice(0,4000),fit:Number(j.score)||0,risks:Array.isArray(j.riskFlags)?j.riskFlags:[],feedPublishedAt:j.publishedAt||"",savedAt:new Date().toISOString()});
+ let rubPrice=(j.source==="FL.ru RSS"||String(j.currency||"").toUpperCase()==="RUB")?Math.max(0,Number(j.budgetMin)||0):0;let details=[j.companyName?"Компания: "+j.companyName:"",j.budgetText?"Оплата из источника: "+j.budgetText:"",j.locationText?"География: "+j.locationText:"",j.paymentCheck||""].filter(Boolean).join("\\n");db.orders.unshift({id:uid(),title:String(j.title||"Удалённый заказ").slice(0,150),platform:j.source==="Himalayas"?"Himalayas":"FL.ru",status:"new",price:rubPrice,due:String(j.deadlineHint||""),link:url,notes:[String(j.description||"").slice(0,3500),details].filter(Boolean).join("\\n\\n").slice(0,4000),fit:Number(j.score)||0,risks:Array.isArray(j.riskFlags)?j.riskFlags:[],feedPublishedAt:j.publishedAt||"",savedAt:new Date().toISOString()});
  save();alert("Проект сохранён в разделе «Заказы». Проверь бюджет, срок и условия вручную.");
 }
 function draftFeedJob(id){
  const j=jobsFeedItems.find(x=>x.id===id);if(!j)return;
  document.getElementById("rtitle").value=String(j.title||"").slice(0,150);
  document.getElementById("job").value=[j.description||"",j.link?"Ссылка на объявление: "+j.link:""].filter(Boolean).join("\n");
- document.getElementById("rprice").value=Number(j.budgetMin)||"";
+ document.getElementById("rprice").value=(j.source==="FL.ru RSS"||String(j.currency||"").toUpperCase()==="RUB")?(Number(j.budgetMin)||""):"";
  document.getElementById("rdue").value=j.deadlineHint||"";
  go("reply");makeReply();
 }
