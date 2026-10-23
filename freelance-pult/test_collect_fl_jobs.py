@@ -46,7 +46,15 @@ class CollectorPolicyTests(unittest.TestCase):
             0,
         )[0]
         self.assertLess(figma_score, 50)
+        touch_score = score_item(
+            "Презентация-викторина для touch-screen",
+            "Интерактивная презентация для сенсорного экрана.",
+            recent,
+            0,
+        )[0]
+        self.assertLess(touch_score, 50)
         self.assertGreater(writing_score, figma_score)
+        self.assertGreater(writing_score, touch_score)
 
     def test_zero_salary_is_not_reported_as_real_pay(self):
         self.assertEqual(salary_label({"minSalary": 0, "maxSalary": 0, "currency": "", "salaryPeriod": "annual"}), (0, 0, ""))
@@ -74,6 +82,7 @@ class CollectorPolicyTests(unittest.TestCase):
         self.assertTrue(blocked_cached_item({"source": "Jobicy", "title": "Content writer", "locationText": "UK"}))
         self.assertTrue(blocked_cached_item({"source": "Remote OK", "title": "Remote software developer", "locationText": "Worldwide"}))
         self.assertTrue(blocked_cached_item({"source": "FL.ru RSS", "title": "Добавить пару страниц в готовой презентации в Figma", "locationText": "Уточнить доступность"}))
+        self.assertTrue(blocked_cached_item({"source": "FL.ru RSS", "title": "Презентация-викторина для touch-screen", "locationText": "Уточнить доступность"}))
         self.assertFalse(blocked_cached_item({"source": "Remote OK", "title": "Content writer", "locationText": "Worldwide"}))
         self.assertFalse(blocked_cached_item({"source": "FL.ru RSS", "title": "Литературный редактор", "locationText": "Уточнить доступность и условия у заказчика"}))
 
