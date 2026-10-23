@@ -1,11 +1,37 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from collect_fl_jobs import job_geo_eligibility, salary_label, score_item
+from collect_fl_jobs import job_geo_eligibility, parse_wwr_feed, salary_label, score_item
 from merge_jobs_feed import blocked_cached_item, too_old_to_carry
 
 
 class CollectorPolicyTests(unittest.TestCase):
+    def test_we_work_remotely_feed_filters_explicit_local_only_roles_and_warns_for_unknown_geo(self):
+        import collect_fl_jobs as collector
+
+        xml = """<?xml version="1.0" encoding="UTF-8"?><rss><channel>
+        <item><title>Remote Copywriter — US Only</title><link>https://weworkremotely.com/remote-jobs/example-us-only</link>
+        <description>Write product content. Remote job - United States only.</description><pubDate>Fri, 23 Oct 2026 12:00:00 +0000</pubDate></item>
+        <item><title>Worldwide Content Writer</title><link>https://weworkremotely.com/remote-jobs/example-worldwide</link>
+        <description>Write blog articles. Work from anywhere in the world.</description><pubDate>Fri, 23 Oct 2026 12:00:00 +0000</pubDate></item>
+        <item><title>Remote Copywriter</title><link>https://weworkremotely.com/remote-jobs/example-unknown</link>
+        <description>Write articles and edit content. We have a remote team.</description><pubDate>Fri, 23 Oct 2026 12:00:00 +0000</pubDate></item>
+        </channel></rss>"""
+        original = collector.read_url
+        try:
+            collector.read_url = lambda *args, **kwargs: xml.encode("utf-8")
+            items = parse_wwr_feed()
+        finally:
+            collector.read_url = original
+        self.assertEqual(len(items), 2)
+        self.assertTrue(all(item["source"] == "We Work Remotely" for item in items))
+        worldwide = next(item for item in items if "Worldwide" in item["title"])
+        unknown = next(item for item in items if item["title"] == "Remote Copywriter")
+        self.assertIn("Worldwide", worldwide["locationText"])
+        self.assertIn("Страны найма не подтверждены", unknown["locationText"])
+        self.assertIn("не подтверждена", unknown["paymentCheck"])
+        self.assertTrue(all(item["link"].startswith("https://weworkremotely.com/") for item in items))
+
     def test_explicit_country_restrictions_are_excluded(self):
         for country in ("USA", "UK", "Canada", "Spain", "Australia", "LATAM, Bulgaria, Canada"):
             with self.subTest(country=country):
