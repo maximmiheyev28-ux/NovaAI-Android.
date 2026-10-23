@@ -1,4 +1,4 @@
-const C="freelance-pult-v8", A=["./","./index.html","./manifest.webmanifest","./jobs.json"];
+const C="freelance-pult-v9", A=["./","./index.html","./manifest.webmanifest","./jobs.json"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(C).then(c=>c.addAll(A))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k))))));
 self.addEventListener("fetch",e=>{
@@ -26,4 +26,13 @@ self.addEventListener("notificationclick",event=>{
  event.notification.close();
  const target=event.notification.data&&event.notification.data.url;
  event.waitUntil(clients.openWindow(target||"./"));
+});
+
+self.addEventListener("push",event=>{
+ let data={};
+ try{data=event.data?event.data.json():{}}catch(e){data={body:event.data?event.data.text():"Новые подходящие заказы найдены."}}
+ const title=typeof data.title==="string"?data.title:"Найдены новые удалённые заказы";
+ const body=typeof data.body==="string"?data.body:"Открой Фриланс-пульт и проверь свежие объявления.";
+ const target=typeof data.url==="string"&&/^https:\/\//i.test(data.url)?data.url:"./";
+ event.waitUntil(self.registration.showNotification(title,{body,tag:"freelance-pult-push",data:{url:target}}));
 });
