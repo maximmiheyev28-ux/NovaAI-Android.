@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from collect_fl_jobs import job_geo_eligibility, salary_label, score_item
 from merge_jobs_feed import blocked_cached_item
@@ -33,6 +33,14 @@ class CollectorPolicyTests(unittest.TestCase):
 
     def test_zero_salary_is_not_reported_as_real_pay(self):
         self.assertEqual(salary_label({"minSalary": 0, "maxSalary": 0, "currency": "", "salaryPeriod": "annual"}), (0, 0, ""))
+
+    def test_jobs_older_than_one_week_are_ranked_below_recent_android_friendly_work(self):
+        recent = datetime.now(timezone.utc).replace(microsecond=0)
+        old = recent - timedelta(days=10)
+        fresh_score = score_item("Литературный редактор", "Редактура текста и правка рукописи.", recent.isoformat().replace("+00:00", "Z"), 0)[0]
+        old_score = score_item("Литературный редактор", "Редактура текста и правка рукописи.", old.isoformat().replace("+00:00", "Z"), 0)[0]
+        self.assertGreater(fresh_score, old_score)
+        self.assertLess(old_score, 50)
 
     def test_cached_country_specific_and_desktop_jobs_are_removed(self):
         self.assertTrue(blocked_cached_item({"source": "Jobicy", "title": "Content writer", "locationText": "UK"}))
