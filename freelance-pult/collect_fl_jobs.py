@@ -43,7 +43,7 @@ HIMALAYAS_SEARCHES = [
     ("Himalayas · свежие вакансии · пакет 10", {"limit": "20", "offset": "180"}),
 ]
 HIMALAYAS_API = "https://himalayas.app/jobs/api"
-JOBICY_API = "https://jobicy.com/api/v2/remote-jobs"
+JOBICY_API = "https://jobicy.com/api/jobs"
 REMOTEOK_API = "https://remoteok.com/api"
 USER_AGENT = "FreelancePult/1.0 (+https://github.com/maximmiheyev28-ux/NovaAI-Android.)"
 MAX_ITEMS = 100
@@ -329,7 +329,7 @@ def salary_label(job: dict) -> tuple[int, int, str]:
     low, high = job.get("minSalary"), job.get("maxSalary")
     currency = str(job.get("currency") or "").strip().upper()
     period = str(job.get("salaryPeriod") or "annual").strip().lower()
-    periods = {"hourly": "в час", "weekly": "в неделю", "fortnightly": "за 2 недели", "monthly": "в месяц", "annual": "в год"}
+    periods = {"hourly": "в час", "weekly": "в неделю", "fortnightly": "за 2 недели", "monthly": "в месяц", "annual": "в год", "yearly": "в год", "contract": "за контракт"}
     def fmt(value: Any) -> str:
         try:
             return f"{float(value):,.0f}".replace(",", " ")
