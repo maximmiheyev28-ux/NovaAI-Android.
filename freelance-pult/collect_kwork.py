@@ -91,48 +91,149 @@ def classify(title,t):
  c=found[0];reason={"text":"Могу подготовить текстовый результат по ТЗ и проверить соответствие требованиям.","documents":"Могу оформить документ, отчёт или презентацию в готовый файл.","data":"Могу обработать данные и подготовить таблицу/CSV/XLSX с проверкой структуры и формул.","code":"Могу написать или исправить код и подготовить файлы проекта; публикация в чужом аккаунте потребует отдельного доступа.","research":"Могу исследовать доступные источники и оформить выводы со ссылками.","image":"Могу создать оригинальное изображение; редактируемый исходник в сторонней программе не обещается."}[c]
  deliver={"text":"готовый текст","documents":"DOCX/PDF/PPTX","data":"таблица или CSV/XLSX","code":"исходные файлы кода и инструкция","research":"отчёт со ссылками","image":"растровое изображение"}[c]
  return c,reason,deliver
+def extract_state_data(page):
+ m=re.search(r"window\.stateData\s*=\s*",page,re.I)
+ if not m:return None
+ raw=page[m.end():]; depth=0; quoted=False; escaped=False
+ for i,ch in enumerate(raw):
+  if quoted:
+   if escaped:escaped=False
+   elif ch=="\\":escaped=True
+   elif ch=='"':quoted=False
+   continue
+  if ch=='"':quoted=True
+  elif ch=="{":depth+=1
+  elif ch=="}":
+   depth-=1
+   if depth==0:
+    try:
+     obj=json.loads(raw[:i+1])
+     return obj if isinstance(obj,dict) else None
+    except json.JSONDecodeError:return None
+ return None
+
+def normalize_date(value):
+ if value is None or value=="":return ""
+ if isinstance(value,(int,float)):
+  try:
+   seconds=float(value)
+   if seconds>100_000_000_000:seconds/=1000
+   return dt.datetime.fromtimestamp(seconds,tz=dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00","Z")
+  except (OverflowError,OSError,ValueError):return ""
+ text=str(value).strip()
+ try:
+  parsed=dt.datetime.fromisoformat(text.replace("Z","+00:00"))
+  if parsed.tzinfo is None:parsed=parsed.replace(tzinfo=dt.timezone.utc)
+  return parsed.astimezone(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00","Z")
+ except (TypeError,ValueError):return ""
+
+def structured_projects(page):
+ state=extract_state_data(page)
+ if not state:return []
+ data=state.get("wantsListData") or {}
+ wants=data.get("wants") or []
+ if not isinstance(wants,list):return []
+ records=[]
+ for want in wants:
+  if not isinstance(want,dict) or not want.get("id"):continue
+  pid=str(want.get("id")).strip()
+  if not pid.isdigit():continue
+  title=clean_text(str(want.get("name") or want.get("title") or "")).replace("\n"," ").strip()
+  if not title:continue
+  description=clean_text(str(want.get("description") or want.get("body") or ""))[:4000]
+  dates=want.get("wantDates") if isinstance(want.get("wantDates"),dict) else {}
+  published=normalize_date(dates.get("dateCreate") or want.get("createdAt") or want.get("dateCreate"))
+  price=want.get("priceLimit")
+  try:price_num=max(0,int(float(price or 0)))
+  except (TypeError,ValueError,OverflowError):price_num=0
+  budget_text=("до "+format(price_num,",").replace(",", " ")+" ₽") if price_num else ""
+  proposals=None
+  for key in ("responsesCount","offersCount","proposalCount","responses","countResponses"):
+   val=want.get(key)
+   try:
+    if val is not None:proposals=int(val);break
+   except (TypeError,ValueError):pass
+  buyer=str(want.get("username") or want.get("userName") or want.get("buyerName") or "")
+  closed=bool(want.get("isClosed") or want.get("isArchived") or want.get("closedAt"))
+  records.append({
+   "pid":pid,"link":"https://kwork.ru/projects/"+pid+"/view","title":title,
+   "text":title+"\n"+description,"description":description,"publishedAt":published,
+   "budgetMin":0,"budgetMax":price_num,"budgetText":budget_text,
+   "proposalCount":proposals,"buyer":buyer,"closed":closed,
+   "expiryAt":normalize_date(want.get("expiresAt") or dates.get("dateFinish")),
+   "deadlineHint":""
+  })
+ return records
+
 def parse_kwork_html(page,checked_at=None,previous=None):
- stamp=checked_at or now_iso();now=dt.datetime.fromisoformat(stamp.replace("Z","+00:00"));p=Parser();p.feed(page);p.close();found=links(p)
- if not found:
+ stamp=checked_at or now_iso()
+ now=dt.datetime.fromisoformat(stamp.replace("Z","+00:00"))
+ structured=structured_projects(page)
+ raw_records=list(structured)
+ if not raw_records:
+  parser=Parser();parser.feed(page);parser.close()
+  anchors=links(parser)
+  for pid,url,a,title in anchors:
+   txt=card(a,title);published=relative_date(txt,now);label,expires=expiry(txt,now);low,high,btxt=get_budget(txt)
+   prop=re.search(r"предложений\s*:\s*(\d+)",txt,re.I);buyer=re.search(r"покупатель\s*:\s*([^\n·]{1,80})",txt,re.I)
+   raw_records.append({"pid":pid,"link":url,"title":title,"text":txt,
+    "description":clean_text(re.sub(re.escape(title)," ",txt,count=1,flags=re.I))[:1200],
+    "publishedAt":published,"budgetMin":low,"budgetMax":high,"budgetText":btxt,
+    "proposalCount":int(prop.group(1)) if prop else None,"buyer":buyer.group(1).strip() if buyer else "",
+    "closed":bool(re.search(r"ист[её]к|заверш[её]н|закрыт",txt,re.I)),"expiryAt":expires,"deadlineHint":label})
+ if not raw_records:
   page_title=re.search(r"<title[^>]*>(.*?)</title>",page,re.I|re.S)
+  title_text=clean_text(page_title.group(1))[:100] if page_title else "(no title)"
   hrefs=re.findall(r"""href\s*=\s*["']([^"']+)["']""",page,re.I)
   project_paths=[urlsplit(h).path for h in hrefs if "project" in h.lower() or "want" in h.lower()]
-  raise ValueError("Kwork public page has no parsed project links; bytes="+str(len(page))+"; title="+clean_text(page_title.group(1))[:100].__repr__()+"; pathMentions="+str(page.lower().count("/projects/"))+"; hrefSamples="+repr(project_paths[:8]))
- prev={str(i.get("link","")).rstrip("/"):i for i in (previous or {}).get("items",[]) if isinstance(i,dict)}
+  raise ValueError("Kwork public page has no parseable project data; bytes="+str(len(page))+
+   "; title="+repr(title_text)+"; stateData="+str("window.stateData" in page)+
+   "; pathMentions="+str(page.lower().count("/projects/"))+"; hrefSamples="+repr(project_paths[:8]))
+ prior={str(i.get("link","")).rstrip("/"):i for i in (previous or {}).get("items",[]) if isinstance(i,dict)}
  items={};skip=0;risks_n=0
- for pid,url,a,title in found:
+ for row in raw_records:
+  pid=row["pid"]
   if pid in items:continue
-  t=card(a,title);desc=re.sub(re.escape(title)," ",t,count=1,flags=re.I)
-  desc=re.sub(r"(?:покупатель\s*:|размещено проектов на бирже\s*:|нанято\s*:|осталось\s*:|предложений\s*:|желаемый бюджет\s*:|допустимый\s*:|цена\s*(?:до)?\s*:).*"," ",desc,flags=re.I);desc=clean_text(desc)[:1200]
-  cat,reason,deliver=classify(title,t)
-  if not cat:skip+=1;continue
-  pub=relative_date(t,now);deadline,expires=expiry(t,now);low,high,btxt=get_budget(t)
-  _,_,riskflags,_,critical=score_item(title,t,pub,high)
-  if critical or RISK.search(t):risks_n+=1;continue
-  if re.search(r"ист[её]к|заверш[её]н|закрыт",t,re.I):continue
-  titlepat=next(pat for name,pat in ABILITY if name==cat);score=72 if titlepat.search(title) else 64
+  title=row["title"]; txt=row["text"]; description=row["description"]
+  category,reason,deliverable=classify(title,txt)
+  if not category:skip+=1;continue
+  published=row["publishedAt"]
+  low=row["budgetMin"];high=row["budgetMax"];budget_text=row["budgetText"]
+  _,_,riskflags,_,critical=score_item(title,txt,published,high)
+  if critical or RISK.search(title+"\n"+txt):risks_n+=1;continue
+  if row["closed"]:continue
+  titlepat=next(pat for name,pat in ABILITY if name==category)
+  score=72 if titlepat.search(title) else 64
   if high:score+=7
-  if pub:
-   age=(now-dt.datetime.fromisoformat(pub.replace("Z","+00:00"))).total_seconds()/3600
-   if 0<=age<=24:score+=10
-   elif 0<=age<=72:score+=5
+  if published:
+   try:
+    age=(now-dt.datetime.fromisoformat(published.replace("Z","+00:00"))).total_seconds()/3600
+    if 0<=age<=24:score+=10
+    elif 0<=age<=72:score+=5
+   except (TypeError,ValueError):pass
   if riskflags:score-=min(15,5*len(riskflags))
-  if re.search(r"срочно|сегодня|за час|максимально быстро",title+"\n"+t,re.I):score-=4
-  old=prev.get(url.rstrip("/"),{});proposal=re.search(r"предложений\s*:\s*(\d+)",t,re.I);buyer=re.search(r"покупатель\s*:\s*([^\n·]{1,80})",t,re.I)
-  items[pid]={"id":"kwork-"+pid,"kworkProjectId":pid,"title":title,"link":url,"description":desc or t[:1200],"publishedAt":pub,
-   "firstSeenAt":old.get("firstSeenAt") or old.get("discoveredAt") or stamp,"expiryAt":expires,"deadlineHint":deadline,"source":"Kwork",
-   "feedName":"Kwork public projects page","score":max(50,min(98,score)),"fitReasons":["Основная задача входит в доступные форматы выполнения",reason],
-   "riskFlags":riskflags,"criticalRisk":False,"hasRelevantKeywords":True,"recommendation":"recommend","recommendationReason":reason,
-   "executionCategory":cat,"deliverable":deliver,"budgetMin":low,"budgetMax":high,"budgetText":btxt,"currency":"RUB" if btxt else "",
-   "proposalCount":int(proposal.group(1)) if proposal else None,"companyName":buyer.group(1).strip() if buyer else "",
+  if re.search(r"срочно|сегодня|за час|максимально быстро",title+"\n"+txt,re.I):score-=4
+  link=row["link"];old=prior.get(link.rstrip("/"),{})
+  score=max(50,min(98,score))
+  items[pid]={"id":"kwork-"+pid,"kworkProjectId":pid,"title":title,"link":link,"description":description,
+   "publishedAt":published,"firstSeenAt":old.get("firstSeenAt") or old.get("discoveredAt") or stamp,
+   "expiryAt":row["expiryAt"],"deadlineHint":row["deadlineHint"],"source":"Kwork",
+   "feedName":"Kwork public projects page","score":score,
+   "fitReasons":["Основная задача входит в доступные форматы выполнения",reason],
+   "riskFlags":riskflags,"criticalRisk":False,"hasRelevantKeywords":True,
+   "recommendation":"recommend","recommendationReason":reason,"executionCategory":category,"deliverable":deliverable,
+   "budgetMin":low,"budgetMax":high,"budgetText":budget_text,"currency":"RUB" if budget_text else "",
+   "proposalCount":row["proposalCount"],"companyName":row["buyer"],
    "locationText":"Проект размещён на Kwork; проверь доступность условий и выплаты в своём аккаунте.",
    "paymentCheck":"Оплата — через Kwork. Не плати за регистрацию или разблокировку выплаты."}
  out=sorted(items.values(),key=lambda x:(x["score"],x.get("publishedAt") or "",-int(x.get("proposalCount") or 999)),reverse=True)
  return {"schemaVersion":1,"source":"Kwork public projects page","checkedAt":stamp,
-  "maxAgeNotice":"Обновляется каждые 30 минут по публичной первой странице Kwork /projects. Если дата публикации неизвестна, указывается время первого обнаружения. Оценка означает, что результат можно подготовить доступными инструментами ChatGPT, а не гарантию найма или оплаты.",
+  "maxAgeNotice":"Обновляется каждые 30 минут по публичной первой странице Kwork /projects. Если дата публикации отсутствует, показывается время первого обнаружения. Рекомендация означает, что результат можно подготовить доступными инструментами ChatGPT; это не гарантия найма или оплаты.",
   "attribution":"Источник: публичная страница проектов Kwork (https://kwork.ru/projects). Открой оригинал перед откликом.",
-  "feeds":[{"name":"Kwork public projects page","url":URL,"ok":True,"items":len(found),"source":"Kwork"}],
-  "stats":{"sourceListingsFound":len(found),"fetchedUnique":len(found),"freshCandidates":len(out),"matchedCandidates":len(out),"excludedNotExecutable":skip,"excludedCriticalRisk":risks_n,"carriedFromPrevious":0,"feedErrors":[]},"items":out}
+  "feeds":[{"name":"Kwork public projects page","url":URL,"ok":True,"items":len(raw_records),"source":"Kwork"}],
+  "stats":{"sourceListingsFound":len(raw_records),"fetchedUnique":len(raw_records),"freshCandidates":len(out),"matchedCandidates":len(out),
+   "excludedNotExecutable":skip,"excludedCriticalRisk":risks_n,"carriedFromPrevious":0,"feedErrors":[]},"items":out}
+
 def fetch_page():
  req=urllib.request.Request(URL,headers={"User-Agent":UA,"Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8","Accept-Language":"ru,en;q=0.7"})
  with urllib.request.urlopen(req,timeout=30) as r:
