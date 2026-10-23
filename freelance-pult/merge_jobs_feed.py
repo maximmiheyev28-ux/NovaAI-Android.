@@ -22,8 +22,20 @@ def parse_time(value: str | None) -> dt.datetime | None:
         return None
 
 
-def blocked_country_geo(item: dict) -> bool:
+def blocked_cached_item(item: dict) -> bool:
     source = str(item.get("source") or "")
+    title = str(item.get("title") or "").lower()
+    # Cached entries must still suit the Android-first target profile.
+    desktop_heavy = re.compile(
+        r"senior|full.?stack|engineer|developer|разработчик|программир|рефакторинг|"
+        r"php|python|java|c\+\+|qt|modbus|linux|opencart|wordpress|верстк|"
+        r"лендинг|дизайн.{0,12}(?:сайт|лендинг|макет)|конструкторск|черт[её]ж|"
+        r"мониторинг цен|парсинг|сбор с сайтов|rag|hmi|modbus|интернет-магазин|"
+        r"ии.?агент|ai.?agent|seo.?аудит|seo.?специалист|автоматизац.{0,20}(?:процесс|ии)",
+        re.I,
+    )
+    if desktop_heavy.search(title):
+        return True
     # FL.ru projects are not country-tagged; ask the customer about payout/eligibility instead.
     if source == "FL.ru RSS":
         return False
@@ -88,7 +100,7 @@ def main() -> int:
         if not isinstance(original, dict) or not original.get("link") or original.get("criticalRisk"):
             continue
         # Apply current geography policy to cached entries too; do not resurrect restricted markets.
-        if blocked_country_geo(original):
+        if blocked_cached_item(original):
             continue
         key = url_key(str(original["link"]))
         if key in fresh_map:
