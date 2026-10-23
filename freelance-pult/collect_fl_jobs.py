@@ -302,6 +302,10 @@ WWR_COUNTRY_NAMES = (
     r"australia|new zealand|germany|france|spain|italy|netherlands|ireland|"
     r"singapore|japan|india|poland|portugal)"
 )
+WWR_TITLE_RESTRICTED_RE = re.compile(
+    r"(?:[-–—(]\s*(?:u\.?s\.?a?\.?|united states|canada|u\.?k\.?|united kingdom|australia|new zealand|germany|france|spain|italy|netherlands|ireland|singapore|japan|india|poland|portugal)\s*(?:only)?\s*\)?$|\b(?:u\.?s\.?a?\.?|united states|canada|u\.?k\.?|united kingdom|australia|new zealand|germany|france|spain|italy|netherlands|ireland|singapore|japan|india|poland|portugal)\s+only\b)",
+    re.I,
+)
 WWR_RESTRICTED_RE = re.compile(
     r"\b(?:remote\s*(?:job|role|position)?\s*[-:(]\s*(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
     + r"only\s+(?:applicants?|candidates?|residents?|employees?)\s+(?:located|based|living|residing|from)\s+in\s+(?:the\s+)?" + WWR_COUNTRY_NAMES + r"\b|"
@@ -334,7 +338,7 @@ def parse_wwr_feed(url: str = WEWORKREMOTELY_RSS) -> list[dict]:
             continue
         description = clean_text(child_text(node, "description") or child_text(node, "summary") or child_text(node, "content"))
         searchable = title + "\n" + description[:900]
-        if WWR_RESTRICTED_RE.search(searchable):
+        if WWR_RESTRICTED_RE.search(searchable) or WWR_TITLE_RESTRICTED_RE.search(title):
             continue
         published = parse_date(
             child_text(node, "pubDate") or child_text(node, "published")
