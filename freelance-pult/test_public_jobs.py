@@ -2,6 +2,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from collect_public_jobs import build_auto_package, is_fresh_for_auto_package, job_geo_eligibility, parse_wwr_feed, salary_label, score_item
+from collect_kwork import parse_kwork_html
 from merge_jobs_feed import blocked_cached_item, remove_stale_auto_package, too_old_to_carry
 from notify_telegram import select_new_items
 
@@ -181,32 +182,60 @@ class CollectorPolicyTests(unittest.TestCase):
     def test_cached_country_restrictions_are_removed_but_device_requirements_are_not(self):
         self.assertTrue(blocked_cached_item({"source": "Jobicy", "title": "Content writer", "locationText": "UK"}))
         self.assertTrue(blocked_cached_item({"source": "Remote OK", "title": "Content writer", "locationText": "United States only"}))
-        self.assertFalse(blocked_cached_item({"source": "Remote OK", "title": "Full-stack developer", "locationText": "Worldwide"}))
-        self.assertFalse(blocked_cached_item({"source": "We Work Remotely", "title": "Добавить страницы в Figma", "locationText": "Уточнить доступность"}))
-        self.assertFalse(blocked_cached_item({"source": "We Work Remotely", "title": "Презентация-викторина для touch-screen", "locationText": "Не указана"}))
-        self.assertFalse(blocked_cached_item({"source": "Jobicy", "title": "Литературный редактор", "locationText": "Worldwide"}))
+        self.assertTrue(blocked_cached_item({"source": "Remote OK", "title": "Full-stack developer", "link": "https://remoteok.com/remote-jobs/a", "locationText": "Worldwide"}))
+        self.assertTrue(blocked_cached_item({"source": "We Work Remotely", "title": "Добавить страницы в Figma", "link": "https://weworkremotely.com/remote-jobs/a", "locationText": "Уточнить доступность"}))
+        self.assertTrue(blocked_cached_item({"source": "We Work Remotely", "title": "Презентация-викторина для touch-screen", "link": "https://weworkremotely.com/remote-jobs/b", "locationText": "Не указана"}))
+        self.assertTrue(blocked_cached_item({"source": "Jobicy", "title": "Литературный редактор", "link": "https://jobicy.com/jobs/a", "locationText": "Worldwide"}))
+        self.assertFalse(blocked_cached_item({"source": "Kwork", "title": "Перевод описаний", "link": "https://kwork.ru/projects/123/view", "locationText": "Kwork"}))
+
+
+    def test_kwork_feed_only_recommends_tasks_with_a_deliverable(self):
+        page = """<!doctype html><html><body>
+        <div class="project-card"><a href="/projects/3157752/view"><h3>Перевод описаний товаров с английского</h3></a>
+        <div>Нужно перевести 10 карточек и проверить термины.</div><div>Желаемый бюджет: до 3 000 ₽</div>
+        <div>Осталось: 2 д. 5 ч.</div><div>Предложений: 2</div></div>
+        <div class="project-card"><a href="/projects/3157753/view"><h3>Писать клиентам по готовому тексту</h3></a>
+        <div>Нужно находить потенциальных клиентов и отправлять сообщения.</div>
+        <div>Цена: 500 ₽</div><div>Осталось: 1 д. 2 ч.</div><div>Предложений: 1</div></div>
+        <div><a href="https://jobicy.com/jobs/123/example">Удалённый редактор</a></div></body></html>"""
+        payload = parse_kwork_html(page, checked_at="2026-10-24T00:00:00Z", previous={"items": []})
+        self.assertEqual(len(payload["items"]), 1)
+        item = payload["items"][0]
+        self.assertEqual(item["source"], "Kwork")
+        self.assertEqual(item["link"], "https://kwork.ru/projects/3157752/view")
+        self.assertEqual(item["recommendation"], "recommend")
+        self.assertIn("текстовый результат", item["recommendationReason"].lower())
+        self.assertEqual(item["budgetMax"], 3000)
+        self.assertTrue(item["expiryAt"])
+        self.assertTrue(item["firstSeenAt"])
+        self.assertGreaterEqual(item["score"], 60)
+
+    def test_kwork_parser_refuses_empty_page(self):
+        with self.assertRaises(ValueError):
+            parse_kwork_html("<html><body>No project cards here</body></html>")
 
 
 class TelegramNotificationPolicyTests(unittest.TestCase):
-    def test_only_new_fresh_high_score_jobs_from_known_sources_are_selected(self):
-        now = datetime(2026, 10, 23, 16, 0, tzinfo=timezone.utc)
-        previous = {"items": [
-            {"link": "https://jobicy.com/jobs/old?utm_source=feed", "source": "Jobicy"}
-        ]}
+    def test_only_new_fresh_high_score_recommendations_from_kwork_are_selected(self):
+        now = datetime(2026, 10, 24, 0, 0, tzinfo=timezone.utc)
+        previous = {"items": [{"link": "https://kwork.ru/projects/100/view", "source": "Kwork"}]}
         current = {"items": [
-            {"link": "https://jobicy.com/jobs/old", "source": "Jobicy", "title": "Already known", "score": 90,
-             "hasRelevantKeywords": True, "criticalRisk": False, "publishedAt": "2026-10-23T10:00:00Z"},
-            {"link": "https://remoteok.com/remote-jobs/new-task", "source": "Remote OK", "title": "Fresh editor",
-             "score": 86, "hasRelevantKeywords": True, "criticalRisk": False, "publishedAt": "2026-10-23T10:00:00Z"},
-            {"link": "https://remoteok.com/remote-jobs/old", "source": "Remote OK", "title": "Old editor",
-             "score": 90, "hasRelevantKeywords": True, "criticalRisk": False, "publishedAt": "2026-10-01T10:00:00Z"},
-            {"link": "https://jobicy.com/jobs/risk", "source": "Jobicy", "title": "Risky role", "score": 90,
-             "hasRelevantKeywords": True, "criticalRisk": True, "publishedAt": "2026-10-23T10:00:00Z"},
-            {"link": "https://kwork.ru/projects/123", "source": "Kwork", "title": "Not fetched automatically",
-             "score": 99, "hasRelevantKeywords": True, "criticalRisk": False, "publishedAt": "2026-10-23T10:00:00Z"}
+            {"link": "https://kwork.ru/projects/100/view", "source": "Kwork", "title": "Already known", "score": 90,
+             "hasRelevantKeywords": True, "recommendation": "recommend", "criticalRisk": False,
+             "firstSeenAt": "2026-10-23T20:00:00Z"},
+            {"link": "https://kwork.ru/projects/101/view", "source": "Kwork", "title": "Fresh translator", "score": 86,
+             "hasRelevantKeywords": True, "recommendation": "recommend", "criticalRisk": False,
+             "firstSeenAt": "2026-10-23T23:00:00Z"},
+            {"link": "https://kwork.ru/projects/102/view", "source": "Kwork", "title": "Not executable", "score": 99,
+             "hasRelevantKeywords": True, "recommendation": "skip", "criticalRisk": False,
+             "firstSeenAt": "2026-10-23T23:00:00Z"},
+            {"link": "https://jobicy.com/jobs/103/a", "source": "Jobicy", "title": "Other site", "score": 99,
+             "hasRelevantKeywords": True, "recommendation": "recommend", "criticalRisk": False,
+             "publishedAt": "2026-10-23T23:00:00Z"},
         ]}
         selected = select_new_items(previous, current, now=now)
-        self.assertEqual([item["title"] for item in selected], ["Fresh editor"])
+        self.assertEqual([item["title"] for item in selected], ["Fresh translator"])
+
 
 
 if __name__ == "__main__":
