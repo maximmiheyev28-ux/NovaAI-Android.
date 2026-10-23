@@ -259,6 +259,9 @@ def score_item(title: str, description: str, published_at: str, price_max: int) 
             elif age_hours <= 168:
                 score += 4
                 reasons.append("Опубликовано в течение последней недели")
+            else:
+                score -= 30
+                reasons.append("Объявлению больше недели; проверь, открыт ли заказ")
         except (TypeError, ValueError):
             pass
 
