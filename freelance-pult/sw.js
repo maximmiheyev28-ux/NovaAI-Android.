@@ -1,4 +1,4 @@
-const C="freelance-pult-v5", A=["./","./index.html","./manifest.webmanifest","./jobs.json"];
+const C="freelance-pult-v6", A=["./","./index.html","./manifest.webmanifest","./jobs.json"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(C).then(c=>c.addAll(A))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k))))));
 self.addEventListener("fetch",e=>{
