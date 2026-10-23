@@ -57,6 +57,15 @@ def blocked_cached_item(item: dict) -> bool:
 
 
 
+def too_old_to_carry(item: dict, now: dt.datetime) -> bool:
+    """Do not resurrect stale project-based gigs; longer remote jobs get a wider window."""
+    published = parse_time(item.get("publishedAt"))
+    if published is None:
+        return False
+    max_days = 7 if str(item.get("source") or "") == "FL.ru RSS" else 14
+    return (now - published).total_seconds() > max_days * 86400
+
+
 def url_key(value: str) -> str:
     try:
         parts = urlsplit(value)
@@ -109,12 +118,12 @@ def main() -> int:
         key = url_key(str(original["link"]))
         if key in fresh_map:
             continue
+        if too_old_to_carry(original, now):
+            continue
         cached_time = parse_time(original.get("cachedFromAt") or original.get("lastSeenAt")) or prior_checked
         if cached_time is None or (now - cached_time).total_seconds() > args.cache_hours * 3600:
             continue
         published = parse_time(original.get("publishedAt"))
-        if published and (now - published).total_seconds() > 14 * 86400:
-            continue
         expiry = parse_time(original.get("expiryAt"))
         if expiry and expiry < now:
             continue
