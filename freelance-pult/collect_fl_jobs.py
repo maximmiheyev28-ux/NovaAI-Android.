@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Collect public job feeds through documented, public endpoints.
 
-Himalayas is queried through its free public jobs API, which permits dashboard
-use with source attribution. FL.ru's public RSS is also attempted because the
-site exposes RSS subscriptions. No logins, anti-bot workarounds, scraping of
-closed pages, proposal submissions, or financial actions are performed.
+Himalayas is queried through its public jobs API, We Work Remotely via its
+public RSS (which explicitly permits use with source attribution), and FL.ru
+RSS when available. No logins, anti-bot workarounds, scraping of closed pages,
+proposal submissions, or financial actions are performed.
 """
 from __future__ import annotations
 
@@ -45,6 +45,7 @@ HIMALAYAS_SEARCHES = [
 HIMALAYAS_API = "https://himalayas.app/jobs/api"
 JOBICY_API = "https://jobicy.com/api/jobs"
 REMOTEOK_API = "https://remoteok.com/api"
+WEWORKREMOTELY_RSS = "https://weworkremotely.com/remote-jobs.rss"
 USER_AGENT = "FreelancePult/1.0 (+https://github.com/maximmiheyev28-ux/NovaAI-Android.)"
 MAX_ITEMS = 100
 MAX_DESCRIPTION = 1200
@@ -294,6 +295,74 @@ def read_url(url: str, accept: str = "application/json") -> bytes:
         if status < 200 or status >= 300:
             raise RuntimeError(f"HTTP {status}")
         return response.read(5_000_000)
+
+
+WWR_RESTRICTED_RE = re.compile(
+    r"\b(?:remote\s*(?:job|role|position)?\s*[-:]\s*|only\s+(?:applicants?|candidates?|residents?|employees?)\s+(?:located|based|living|residing|from)\s+in\s+|"
+    r"(?:must|needs? to|required to)\s+(?:be\s+)?(?:located|based|resident|residing|live|living)\s+in\s+|"
+    r"(?:applicants?|candidates?)\s+(?:must|required to|need to)\s+(?:be\s+)?(?:located|based|resident|residing|living)\s+in\s+|"
+    r"(?:u\.?s\.?a?\.?|united states|canada|u\.?k\.?|united kingdom|australia|new zealand|germany|france|spain|italy|netherlands|ireland|singapore|japan|india|poland|portugal)\s+only\b)",
+    re.I,
+)
+
+
+def parse_wwr_feed(url: str = WEWORKREMOTELY_RSS) -> list[dict]:
+    """Parse We Work Remotely public RSS with required source attribution."""
+    root = ET.fromstring(read_url(url, "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5"))
+    nodes = [node for node in root.iter() if local_name(node.tag) in ("item", "entry")]
+    records: list[dict] = []
+    for node in nodes:
+        title = clean_text(child_text(node, "title"))
+        link = child_text(node, "link").strip()
+        if not link:
+            for child in list(node):
+                if local_name(child.tag) == "link":
+                    link = child.attrib.get("href", "").strip()
+                    if link:
+                        break
+        if not title or not link:
+            continue
+        parsed = urlparse(link)
+        host = (parsed.hostname or "").lower()
+        if parsed.scheme not in ("http", "https") or not (host == "weworkremotely.com" or host.endswith(".weworkremotely.com")):
+            continue
+        description = clean_text(child_text(node, "description") or child_text(node, "summary") or child_text(node, "content"))
+        searchable = title + "\n" + description[:900]
+        if WWR_RESTRICTED_RE.search(searchable):
+            continue
+        published = parse_date(
+            child_text(node, "pubDate") or child_text(node, "published")
+            or child_text(node, "updated") or child_text(node, "date")
+        )
+        if published:
+            try:
+                age_hours = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(published.replace("Z", "+00:00"))).total_seconds() / 3600
+                if age_hours > 14 * 24:
+                    continue
+            except (TypeError, ValueError):
+                pass
+        low, high, budget_text = parse_money(title + "\n" + description)
+        deadline_match = DATE_RE.search(title + "\n" + description)
+        score, reasons, risks, matched, critical = score_item(title, description, published, high)
+        if not matched:
+            continue
+        digest = hashlib.sha256(link.split("#")[0].encode("utf-8")).hexdigest()[:16]
+        location = "Страны найма не подтверждены в RSS — уточни, допускается ли работа из РФ."
+        if re.search(r"worldwide|anywhere|from any country|work from anywhere", searchable, re.I):
+            location = "Worldwide указано в тексте — всё равно уточни допуск из РФ."
+        records.append({
+            "id": digest, "title": title[:180], "link": link,
+            "description": description[:MAX_DESCRIPTION], "publishedAt": published,
+            "source": "We Work Remotely", "feedName": "We Work Remotely public RSS", "score": score,
+            "fitReasons": reasons, "riskFlags": risks, "criticalRisk": critical,
+            "hasRelevantKeywords": matched, "budgetMin": low, "budgetMax": high,
+            "budgetText": budget_text, "currency": "USD" if "$" in budget_text else "",
+            "deadlineHint": deadline_match.group(1) if deadline_match else "",
+            "companyName": "", "employmentType": "", "seniority": "", "categories": [],
+            "locationText": location,
+            "paymentCheck": "Возможность найма резидента России и выплаты на российскую карту не подтверждена источником. Уточни страны допуска, валюту, комиссии и способ оплаты до отклика.",
+        })
+    return records
 
 
 def parse_fl_feed(feed_name: str, url: str) -> list[dict]:
@@ -665,6 +734,17 @@ def main() -> int:
             errors.append(message)
             feed_status.append({"name": source_name + " public API", "url": source_url, "ok": False, "error": message})
 
+    # We Work Remotely explicitly permits public RSS reuse when listings link back to the source.
+    try:
+        rows = parse_wwr_feed()
+        all_items.extend(rows)
+        feed_status.append({"name": "We Work Remotely public RSS", "url": WEWORKREMOTELY_RSS, "ok": True, "items": len(rows), "source": "We Work Remotely public RSS"})
+        successes += 1
+    except (urllib.error.URLError, urllib.error.HTTPError, ET.ParseError, TimeoutError, OSError, RuntimeError, ValueError) as exc:
+        message = f"We Work Remotely public RSS: {type(exc).__name__}: {str(exc)[:180]}"
+        errors.append(message)
+        feed_status.append({"name": "We Work Remotely public RSS", "url": WEWORKREMOTELY_RSS, "ok": False, "error": message})
+
     # FL.ru advertises an RSS subscription, but its endpoints may refuse cloud-runner requests.
     # A 403 is recorded as a source limitation, never bypassed.
     for feed_name, feed_url in FL_FEEDS:
@@ -702,11 +782,11 @@ def main() -> int:
 
     payload = {
         "schemaVersion": 1,
-        "source": "Himalayas public API + FL.ru public RSS when reachable",
+        "source": "Himalayas, Jobicy, Remote OK, We Work Remotely public RSS, FL.ru RSS when reachable",
         "checkedAt": checked_at,
         "apiUpdatedAt": "Himalayas API data is refreshed approximately once every 24 hours.",
         "maxAgeNotice": "The source does not confirm the employer will still accept applications; open the listing and verify all terms before applying.",
-        "attribution": "Data by Himalayas (https://himalayas.app); FL.ru RSS where available.",
+        "attribution": "Sources: Himalayas (https://himalayas.app), Jobicy (https://jobicy.com), Remote OK (https://remoteok.com), We Work Remotely (https://weworkremotely.com); FL.ru RSS where available.",
         "feeds": feed_status,
         "stats": {
             "fetchedUnique": len(all_unique),
