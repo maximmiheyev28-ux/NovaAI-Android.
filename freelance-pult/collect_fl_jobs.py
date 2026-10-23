@@ -221,7 +221,8 @@ def score_item(title: str, description: str, published_at: str, price_max: int) 
     title_match = bool(POSITIVE_RE.search(title_text))
     body_match = bool(POSITIVE_RE.search(description_text))
     matched = title_match or body_match
-    mobile_title = bool(MOBILE_TITLE_RE.search(title_text))
+    technical_title = bool(TECH_HEAVY_TITLE_RE.search(title_text))
+    mobile_title = bool(MOBILE_TITLE_RE.search(title_text)) and not technical_title
     mobile_body = bool(MOBILE_RE.search(description_text))
     score = 18
 
@@ -258,11 +259,10 @@ def score_item(title: str, description: str, published_at: str, price_max: int) 
         except (TypeError, ValueError):
             pass
 
-    technical_title = bool(TECH_HEAVY_TITLE_RE.search(title_text))
     if not mobile_title:
         score -= 10
     if technical_title:
-        score -= 24
+        score -= 32
         reasons.append("Вероятно требуются специальные навыки или работа за компьютером; для работы только с Android это низкий приоритет")
     if risks:
         critical_count = sum(1 for _, message in CRITICAL_RISKS if message in risks)
@@ -339,7 +339,10 @@ def salary_label(job: dict) -> tuple[int, int, str]:
             return f"{float(value):,.0f}".replace(",", " ")
         except (TypeError, ValueError):
             return ""
-    if low is None and high is None:
+    if (low is None and high is None) or (
+        isinstance(low, (int, float)) and isinstance(high, (int, float))
+        and float(low) == 0 and float(high) == 0
+    ):
         return 0, 0, ""
     low_num = int(float(low)) if low is not None else 0
     high_num = int(float(high)) if high is not None else low_num
