@@ -36,21 +36,19 @@ input,select,textarea{width:100%;padding:11px 12px;border-radius:11px;border:1px
 <div class="card"><p>Панель не обходит сайты в фоне и не отправляет отклики автоматически. Этот блок ускоряет ежедневный процесс и сохраняет отметки на этом устройстве.</p>
 <div class="actions"><a class="btn" href="https://kwork.ru/projects" target="_blank" rel="noopener">Искать на Kwork ↗</a></div>
 <div id="dailySteps" class="list" style="margin-top:12px"></div><div class="actions" style="margin-top:10px"><button class="secondary small" onclick="resetDaily()">Сбросить отметки</button></div></div>
-<div class="card"><h3>Быстро сохранить найденный заказ</h3><p>Скопируй название, ссылку и бюджет из объявления. Сохрани заказ, чтобы подготовить отклик и не потерять дедлайн.</p>
-<div class="field"><label>Название проекта *</label><input id="quickTitle" maxlength="150" placeholder="Например, написать 3 статьи"></div>
-<div class="row"><div class="field"><label>Площадка</label><select id="quickPlatform"><option>Kwork</option><option>Прямой клиент</option><option>Другое</option></select></div><div class="field"><label>Бюджет, ₽</label><input id="quickPrice" type="number" min="0" placeholder="4000"></div></div>
-<div class="field"><label>Ссылка на объявление</label><input id="quickLink" type="url" placeholder="https://..."></div>
-<div class="field"><label>Текст объявления (для подготовки отклика)</label><textarea id="quickText" placeholder="Вставь требования заказчика"></textarea></div>
-<div class="actions"><button class="secondary" onclick="pasteJobClipboard()">Вставить из буфера</button><button onclick="quickSave()">Сохранить заказ</button><button class="secondary" onclick="quickPrepareReply()">Подготовить отклик</button></div></div>
-<div class="card"><h3>Автооценка объявления</h3><p>Вставь текст объявления в поле выше и нажми кнопку. Панель проверит тематическое соответствие, возможные признаки мошенничества и попробует извлечь бюджет и срок. Проверка работает локально и не открывает объявление по ссылке.</p><div class="actions"><button class="secondary" onclick="analyzeQuickJob()">Оценить объявление</button><button class="secondary" onclick="quickPrepareReply()">Оценить и подготовить отклик</button></div><div id="jobAnalysis" class="hide" style="margin-top:12px"></div></div>
+<div class="card"><h3>Добавить заказ по ссылке</h3><p>Вставь только ссылку на конкретный проект Kwork. Название, цену и срок вручную заполнять не нужно: сохрани ссылку и передай её в ChatGPT для анализа условий, оценки бюджета, срока и рисков.</p>
+<div class="field"><label>Ссылка на проект Kwork *</label><input id="quickLink" type="url" inputmode="url" autocomplete="url" placeholder="https://kwork.ru/projects/123456/view"></div>
+<div class="actions"><button class="secondary" onclick="pasteJobClipboard()">Вставить ссылку из буфера</button><button onclick="quickSave()">Сохранить ссылку</button><button class="secondary" onclick="quickAnalyzeLink()">Разобрать в ChatGPT: цена, срок, риски</button></div>
+<div id="jobAnalysis" class="hide" style="margin-top:12px"></div></div>
+<div class="card"><h3>Что будет подготовлено</h3><p>После изучения исходной карточки ChatGPT предложит разумную цену, срок с запасом на проверку, перечень результата, риски и вопросы к клиенту, а также черновик отклика и план выполнения. Если ссылка не открывается или в ней нет полного ТЗ, понадобится вставить текст или скриншоты объявления. До изучения условий бюджет и срок остаются неподтверждёнными — ничего не выдумываем.</p></div>
 <div class="note">Сборщик читает открытые API/RSS, но не входит в аккаунты площадок, не обходит блокировки, не отправляет отклики и не проводит выплаты. Вакансия может быть уже закрыта; проверяй её на исходном сайте. Клиенты и доход не гарантированы.</div>
 <div class="card"><h3>🛡️ Не теряй деньги</h3><p>Работай через безопасную сделку площадки, когда это доступно. Не плати за «активацию вывода», не переходи к подозрительным ссылкам и не сообщай коды из SMS, пароль или CVV.</p></div>
 </section>
 <section id="p-orders" class="page"><div class="heading"><div><h2>Мои заказы</h2><div class="meta">Автосохранение на устройстве</div></div><button onclick="formOpen()">＋ Заказ</button></div>
-<div id="formbox" class="card hide"><h3 id="formtitle">Добавить лид</h3><form id="orderform"><input id="oid" type="hidden"><div class="field"><label>Название задачи *</label><input id="title" required maxlength="150" placeholder="Например, описания 10 товаров"></div>
+<div id="formbox" class="card hide"><h3 id="formtitle">Добавить лид</h3><form id="orderform"><input id="oid" type="hidden"><input id="title" type="hidden">
 <div class="row"><div class="field"><label>Площадка</label><select id="platform"><option>Kwork</option><option>Himalayas</option><option>Jobicy</option><option>Remote OK</option><option>We Work Remotely</option><option>Прямой клиент</option><option>Другое</option></select></div><div class="field"><label>Статус</label><select id="status"><option value="new">Новый лид</option><option value="sent">Отклик отправлен</option><option value="talk">Переговоры</option><option value="active">В работе</option><option value="wait">Ждёт оплату</option><option value="paid">Оплачен</option><option value="lost">Не состоялся</option></select></div></div>
 <div class="row"><div class="field"><label>Сумма, ₽</label><input id="price" type="number" min="0" step="1" placeholder="1000"></div><div class="field"><label>Срок</label><input id="due" type="text" placeholder="3 дня или 2026-10-25"></div></div>
-<div class="field"><label>Ссылка на проект</label><input id="link" type="url" placeholder="https://..."></div><div class="field"><label>Требования / заметки</label><textarea id="notes" placeholder="Объём, формат, что согласовано"></textarea></div>
+<div class="field"><label>Ссылка на проект *</label><input id="link" type="url" required placeholder="https://kwork.ru/projects/123456/view"></div><div class="field"><label>Требования / заметки</label><textarea id="notes" placeholder="Объём, формат, что согласовано"></textarea></div>
 <div class="card" style="box-shadow:none;background:#f7f9fe"><h3>Контроль качества перед сдачей</h3><p>Отмечай только после фактического выполнения проверки. Переход к статусу «Ждёт оплату» или «Оплачен» заблокируется, пока не пройдены оба этапа.</p>
 <label style="display:flex;gap:10px;align-items:flex-start;margin:10px 0"><input id="qaFirst" type="checkbox" style="width:18px;height:18px;flex:0 0 auto;margin-top:3px"><span><b>Проверка № 1 — соответствие ТЗ</b><br><small class="muted">Все пункты требований выполнены; факты и расчёты сверены; допущения обозначены.</small></span></label>
 <label style="display:flex;gap:10px;align-items:flex-start;margin:10px 0"><input id="qaSecond" type="checkbox" style="width:18px;height:18px;flex:0 0 auto;margin-top:3px"><span><b>Проверка № 2 — независимая финальная проверка</b><br><small class="muted">Орфография, ссылки, формат и открытие файлов, полнота комплекта и отсутствие лишних персональных данных проверены повторно.</small></span></label></div>
@@ -101,12 +99,13 @@ function formClose(){document.getElementById("formbox").classList.add("hide");do
 document.getElementById("orderform").onsubmit=e=>{
  e.preventDefault();
  const old=document.getElementById("oid").value,existing=db.orders.find(x=>x.id===old);
+ const link=safeurl(document.getElementById("link").value.trim());
+ if(!link){alert("Вставь корректную ссылку на проект.");return}
  const status=document.getElementById("status").value,qaFirst=document.getElementById("qaFirst").checked,qaSecond=document.getElementById("qaSecond").checked;
  if(["wait","paid"].includes(status)&&!["wait","paid"].includes(existing?.status)&&!(qaFirst&&qaSecond)){
-  alert("Перед отметкой о сдаче/оплате пройди обе проверки качества: по ТЗ и повторную финальную.");
-  return;
+  alert("Перед отметкой о сдаче/оплате пройди обе проверки качества: по ТЗ и повторную финальную.");return;
  }
- const o={id:old||uid(),title:document.getElementById("title").value.trim(),platform:document.getElementById("platform").value,status,price:+document.getElementById("price").value||0,due:document.getElementById("due").value,link:document.getElementById("link").value.trim(),notes:document.getElementById("notes").value.trim(),qaFirst,qaSecond};
+ const o={id:old||uid(),title:existing?.title||titleFromLink(link),platform:document.getElementById("platform").value,status,price:+document.getElementById("price").value||0,due:document.getElementById("due").value,link,notes:document.getElementById("notes").value.trim(),qaFirst,qaSecond};
  const i=db.orders.findIndex(x=>x.id===old);i<0?db.orders.unshift(o):db.orders[i]=o;
  formClose();save();
 };
@@ -222,12 +221,52 @@ const DAILY_KEY="fpult_daily_v1", DAILY_ITEMS=["Проверить новые о
 function renderDaily(){let state={};try{state=JSON.parse(localStorage.getItem(DAILY_KEY)||"{}")}catch(e){};document.getElementById("dailySteps").innerHTML=DAILY_ITEMS.map((s,i)=>'<label class="item" style="display:flex;gap:10px;align-items:center;margin:0"><input type="checkbox" style="width:20px;height:20px;flex:0 0 auto" '+(state[i]?'checked':'')+' onchange="setDaily('+i+',this.checked)"><span>'+esc(s)+'</span></label>').join("")}
 function setDaily(i,v){let state={};try{state=JSON.parse(localStorage.getItem(DAILY_KEY)||"{}")}catch(e){};state[i]=v;localStorage.setItem(DAILY_KEY,JSON.stringify(state));renderDaily()}
 function resetDaily(){if(confirm("Сбросить отметки ежедневного процесса?")){localStorage.removeItem(DAILY_KEY);renderDaily()}}
-async function pasteJobClipboard(){try{if(!navigator.clipboard||!navigator.clipboard.readText)throw new Error("clipboard unavailable");let raw=(await navigator.clipboard.readText()).trim();if(!raw){alert("Буфер обмена пуст.");return}let lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),urls=raw.match(/https?:\/\/[^\s<>"']+/g)||[],linkField=document.getElementById("quickLink");if(urls.length&&!linkField.value){let u=safeurl(urls[0].replace(/[),.;]+$/,""));if(u)linkField.value=u}if(/kwork\.ru/i.test(raw))document.getElementById("quickPlatform").value="Kwork";let titleField=document.getElementById("quickTitle"),textField=document.getElementById("quickText"),usable=lines.filter(x=>!/^https?:\/\//i.test(x));if(!titleField.value&&usable.length){let idx=usable.findIndex(x=>!/^(?:бюджет|оплата|цена|стоимость|срок)\s*[:—-]/i.test(x)),title=idx>=0?usable.splice(idx,1)[0]:usable.shift();titleField.value=title.slice(0,150)}if(!textField.value)textField.value=usable.join("\n");else textField.value=(textField.value+"\n\n"+raw).trim();analyzeQuickJob()}catch(e){alert("Браузер не разрешил прочитать буфер обмена. Скопируй текст объявления, затем вставь его вручную в поле текста.")}}
-function assessText(title,job,platform,price,link){let text=(title+" "+job).toLowerCase(),risks=[],positive=/текст|стать|описан|карточк|таблиц|excel|документ|презентац|контент|перевод|помощник|ассистент|ввод данных|заполнение данных|сайт|лендинг|html|редакт|коррект|оформлен|каталог|товар/.test(text),score=45;if(positive)score+=25;if(Number(price)>0)score+=10;if(safeurl(link))score+=5;if(/срок|до \d+\s*(дн|час|недел)|в течение \d+/.test(text))score+=5;const rules=[[/предоплат|залог|внесите оплат|оплати.{0,20}(?:доступ|регистрац|активац)|плата за отклик|активац.{0,20}вывод|комисси.{0,20}для вывода/i,"Просят заплатить заранее или «разблокировать» выплату."],[/cvv|cvc|пин-код|код из sms|sms-код|пароль от банка|данные карты|полные реквизиты карты/i,"Запрашивают опасные банковские данные или код подтверждения."],[/перевед.{0,25}(?:деньги|средств).{0,30}(?:дальше|треть|на карту)|получ.{0,20}перевест.{0,20}деньг|обналич|дроппер/i,"Похоже на просьбу принять или переслать чужие деньги."],[/установ.{0,30}(?:apk|приложен|программу)|скачайте.{0,30}apk|удалённ.{0,20}(?:доступ|управлен)/i,"Просят установить приложение или дать удалённый доступ."],[/бесплатн.{0,20}тест|тестов.{0,20}задан|выполн.{0,20}тест.{0,20}бесплат/i,"Есть риск бесплатного тестового задания."],[/гарантированн.{0,20}(?:доход|заработок|работа)|доход без усилий|без вложений.{0,30}доход/i,"Обещают гарантированный доход без нормального описания задачи."]];for(const [re,msg] of rules){if(re.test(text)){risks.push(msg);score-=msg.startsWith("Просят заплатить")||msg.startsWith("Запрашивают опасные")||msg.startsWith("Похоже на просьбу")||msg.startsWith("Просят установить")?30:12}}if(/telegram|телеграм|whatsapp|вне площадки|перейти в мессенджер|личн.{0,10}сообщен/i.test(text)&&/kwork/i.test(platform))risks.push("Kwork: проверь правила площадки перед переходом в сторонний мессенджер.");score=Math.max(0,Math.min(100,score));let budget=0;if(!Number(price)){let m=(job+" "+title).match(/(?:бюджет(?:\s+заказа)?|оплата|стоимость|цена|до|от)\s*[:—-]?\s*(\d[\d\s\u00a0]*(?:[.,]\d{1,2})?)\s*(?:₽|руб(?:лей|ля|ль)?\.?)/i);if(m)budget=Math.round(Number(m[1].replace(/[\s\u00a0]/g,"").replace(",","."))||0)}let due=(job+" "+title).match(/(?:срок(?:и)?(?:\s+выполнения)?|в течение|за)\s*[:—-]?\s*(\d+\s*(?:рабочих\s*)?(?:дн(?:я|ей)?|час(?:а|ов)?|недел(?:ю|и|ь)?))/i);return{score,risks,positive,budget,due:due?due[1]:"",verdict:risks.some(x=>x.startsWith("Просят заплатить")||x.startsWith("Запрашивают опасные")||x.startsWith("Похоже на просьбу")||x.startsWith("Просят установить"))?"Высокий риск — не отправляй деньги, коды и не устанавливай ПО":score>=70?"Стоит рассмотреть после проверки условий":score>=45?"Нужны уточнения до отклика":"Низкое тематическое совпадение"}} 
-function analyzeQuickJob(){let title=document.getElementById("quickTitle").value.trim(),job=document.getElementById("quickText").value.trim(),platform=document.getElementById("quickPlatform").value,price=document.getElementById("quickPrice").value,link=document.getElementById("quickLink").value.trim();if(!title&&!job){alert("Вставь название или текст объявления.");return}let a=assessText(title,job,platform,price,link);if(a.budget&&!Number(price)){document.getElementById("quickPrice").value=a.budget;price=a.budget}let out=document.getElementById("jobAnalysis");out.classList.remove("hide");out.innerHTML='<div class="item"><div class="top"><h3>Предварительная оценка</h3><span class="badge">'+a.score+' / 100</span></div><p><b>'+esc(a.verdict)+'</b></p><p>Совпадение с типами простых цифровых задач: <b>'+(a.positive?"обнаружено":"не обнаружено")+'</b></p><p>Бюджет: <b>'+(a.budget?rub(a.budget):(Number(price)?rub(price):"не распознан"))+'</b> · Срок: <b>'+esc(a.due||"не распознан")+'</b></p>'+(a.risks.length?'<p>Предупреждения:<br>'+a.risks.map(x=>"• "+esc(x)).join("<br>")+'</p>':'<p class="good" style="padding:9px;border-radius:9px">Явные шаблоны опасных требований не найдены — это не гарантия безопасности.</p>')+'<p class="meta">Оценка эвристическая: она анализирует только вставленный текст и не проверяет заказчика, объявление или платёж.</p></div>';return a}
-function quickSave(){let title=document.getElementById("quickTitle").value.trim();if(!title){alert("Укажи название проекта.");return}let link=document.getElementById("quickLink").value.trim();if(link&&!safeurl(link)){alert("Ссылка должна начинаться с http:// или https://.");return}let platform=document.getElementById("quickPlatform").value,notes=document.getElementById("quickText").value.trim(),price=Math.max(0,+document.getElementById("quickPrice").value||0),a=assessText(title,notes,platform,price,link);db.orders.unshift({id:uid(),title,platform,status:"new",price:price||a.budget,due:a.due,link,notes,fit:a.score,risks:a.risks,analyzedAt:new Date().toISOString()});save();document.getElementById("quickTitle").value="";document.getElementById("quickPrice").value="";document.getElementById("quickLink").value="";document.getElementById("quickText").value="";document.getElementById("jobAnalysis").classList.add("hide");alert("Заказ сохранён с оценкой совпадения и проверкой распространённых рисков.")}
-function quickPrepareReply(){let title=document.getElementById("quickTitle").value.trim(),job=document.getElementById("quickText").value.trim();if(!title&&!job){alert("Вставь название или текст объявления.");return}document.getElementById("rtitle").value=title;document.getElementById("job").value=job;document.getElementById("rprice").value=document.getElementById("quickPrice").value;go("reply");makeReply()}
-
+function platformFromLink(link){
+ try{const h=new URL(link).hostname.toLowerCase();return (h==="kwork.ru"||h.endsWith(".kwork.ru"))?"Kwork":"Другое"}catch(e){return "Другое"}
+}
+function titleFromLink(link){
+ try{
+  const u=new URL(link),m=u.pathname.match(/\\/projects\\/(\\d+)/i);
+  if(u.hostname.toLowerCase()==="kwork.ru"||u.hostname.toLowerCase().endsWith(".kwork.ru"))return m?"Проект Kwork №"+m[1]:"Проект Kwork по ссылке";
+  return "Проект по ссылке ("+u.hostname+")";
+ }catch(e){return "Проект по ссылке"}
+}
+function validateQuickKworkLink(){
+ const field=document.getElementById("quickLink"),raw=field.value.trim(),link=safeurl(raw);
+ if(!link){alert("Вставь корректную ссылку, начинающуюся с https://.");field.focus();return ""}
+ if(platformFromLink(link)!=="Kwork"){alert("Сейчас пульт принимает ссылки на Kwork. Открой конкретный проект Kwork и скопируй его ссылку.");field.focus();return ""}
+ if(!/\\/projects\\/\\d+/i.test(new URL(link).pathname)){alert("Нужна прямая ссылка на проект вида https://kwork.ru/projects/123456/view, а не ссылка на весь список.");field.focus();return ""}
+ field.value=link;return link;
+}
+function saveQuickLink(silent=false){
+ const link=validateQuickKworkLink();if(!link)return "";
+ const existing=db.orders.find(o=>safeurl(o.link)===link);
+ if(existing){if(!silent)alert("Эта ссылка уже сохранена как «"+existing.title+"». Открой раздел «Заказы», чтобы продолжить.");return existing.id}
+ const title=titleFromLink(link),id=uid();
+ db.orders.unshift({id,title,platform:"Kwork",status:"new",price:0,due:"",link,
+  notes:"Ссылка сохранена. Название, требования, объём, бюджет и срок ещё не проверены. Перед откликом открой исходную карточку и передай ссылку в ChatGPT для анализа.",
+  linkOnlyIntake:true,savedAt:new Date().toISOString()});
+ save();document.getElementById("quickLink").value="";
+ if(!silent)alert("Ссылка сохранена. Цена и срок пока не указаны, потому что исходное задание ещё не изучено.");
+ return id;
+}
+function quickSave(){saveQuickLink(false)}
+async function quickAnalyzeLink(){
+ const id=saveQuickLink(true);if(!id)return;
+ go("orders");
+ await transferToChatGPT("order",id);
+}
+async function pasteJobClipboard(){
+ try{
+  if(!navigator.clipboard||!navigator.clipboard.readText)throw new Error("clipboard unavailable");
+  const raw=(await navigator.clipboard.readText()).trim(),urls=raw.match(/https?:\\/\\/[^\\s<>"']+/g)||[];
+  if(!raw){alert("Буфер обмена пуст.");return}
+  const link=urls.length?urls[0].replace(/[),.;!?]+$/,""):raw;
+  const clean=safeurl(link);
+  if(!clean){alert("В буфере не найдена корректная ссылка. Скопируй ссылку на конкретный проект Kwork.");return}
+  document.getElementById("quickLink").value=clean;
+ }catch(e){alert("Браузер не разрешил прочитать буфер. Скопируй ссылку на Kwork, затем вставь её в поле «Ссылка на проект Kwork».")}
+}
 const JOBS_FEED_URL="https://raw.githubusercontent.com/maximmiheyev28-ux/NovaAI-Android./jobs-feed/freelance-pult/jobs.json";
 let jobsFeedData=null, jobsFeedItems=[];
 function autoPackEnabled(){return localStorage.getItem(AUTO_PACK_PREF_KEY)!=="0"}
@@ -307,7 +346,7 @@ async function transferToChatGPT(kind,id){
   url=safeurl(item.link);budget=item.price?rub(item.price):"не указан";due=String(item.due||"не указан");source=String(item.platform||"площадка");
  }
  const payload=[
-  "Выполни фриланс-заказ по предоставленным материалам. Сначала разберись в ТЗ, выполнимости, рисках и недостающих данных. Подготовь фактический результат в требуемом формате, если материалы позволяют. Затем выполни две отдельные проверки: (1) сверка каждого пункта результата с ТЗ; (2) независимая финальная проверка фактов, вычислений, орфографии, структуры, ссылок, формата и целостности файлов. Исправь найденные ошибки и повторно проверь изменённые места. Не утверждай, что проверка проведена, если не выполнил её. Не выдумывай факты, опыт или материалы; остановись и перечисли блокеры, если не хватает критичных входных данных. Не отправляй ничего заказчику от имени пользователя. В конце дай краткий отчёт о двух проверках и список того, что остаётся вручную проверить и отправить.",
+  "Сначала открой и изучи оригинальную ссылку объявления, если страница доступна. Извлеки фактическое ТЗ, перечень deliverables, объём, критерии приёмки, бюджет/диапазон бюджета и дедлайн. Предложи обоснованную цену в ₽ и срок с резервом на две проверки, объясни кратко расчёт и перечисли допущения; не выдумывай бюджет или дедлайн, если они не опубликованы. Отметь риски, доступность исходных материалов и вопросы клиенту. Затем подготовь честный черновик отклика и план выполнения. Если ссылка не открывается или в описании недостаточно данных, явно попроси вставить текст/скриншоты и не выдавай предположения за факты. Если материалов достаточно, подготовь фактический результат в требуемом формате. Выполни две отдельные проверки: (1) сверка результата с каждым пунктом ТЗ; (2) независимая финальная проверка фактов, вычислений, орфографии, структуры, ссылок, формата и целостности файлов. Исправь ошибки и перепроверь изменённые места. Не утверждай, что проверка проведена, если не выполнил её. Не отправляй ничего заказчику от имени пользователя. В конце дай цену, срок, список рисков, отчёт по двум проверкам и то, что остаётся вручную подтвердить/отправить.",
   "",
   "Название: "+title,
   "Источник: "+source,
