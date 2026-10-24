@@ -99,7 +99,7 @@ function toggleAnalysisImport(){document.getElementById("analysisImportBox").cla
 function importAnalysisFromText(){
  const raw=document.getElementById("analysisImportText").value.trim();if(!raw){alert("Сначала вставь полный ответ ChatGPT с блоком JSON.");return}
  const match=raw.match(/PULT_RESULT_JSON_START\s*([\s\S]*?)\s*PULT_RESULT_JSON_END/i);if(!match){alert("Не найден блок PULT_RESULT_JSON_START / PULT_RESULT_JSON_END. Попроси ChatGPT вернуть JSON-блок из промпта пульта.");return}
- let data;try{data=JSON.parse(match[1].trim())}catch(e){alert("JSON в ответе повреждён. Скопируй весь блок без изменений и повтори импорт.");return}
+ let data;try{const jsonText=match[1].trim().replace(/^```(?:json)?\\s*/i,"").replace(/\\s*```$/,"");data=JSON.parse(jsonText)}catch(e){alert("JSON в ответе повреждён. Скопируй весь блок без изменений и повтори импорт.");return}
  if(!data||typeof data!=="object"){alert("JSON не является объектом задания.");return}
  function projectPathId(value){try{const parts=new URL(value).pathname.split("/").filter(Boolean);return parts[0]==="projects"?(parts[1]||""):""}catch(e){return""}}const link=safeurl(data.url||"");let item=link?db.orders.find(o=>safeurl(o.link)===link||(projectPathId(o.link)&&projectPathId(o.link)===projectPathId(link))):null;if(!item){const pending=db.orders.filter(o=>o.linkOnlyIntake&&!o.taskDescription);if(pending.length===1)item=pending[0];else if(pending.length>1){const options=pending.map((o,i)=>(i+1)+". "+o.title+" — "+o.link).join("\n");const answer=prompt("Ссылка не совпала точно. Введи номер заказа:\n"+options);const n=Number(answer);if(Number.isInteger(n)&&n>0&&n<=pending.length)item=pending[n-1]}}if(!item){alert("Не удалось определить карточку для импорта. Сохрани ссылку на проект или проверь URL в блоке JSON.");return}
  const description=String(data.description||data.taskDescription||"").trim().slice(0,12000);if(!description){alert("В JSON нет описания задания. Не буду сохранять предположение вместо исходных требований.");return}
@@ -140,6 +140,7 @@ function filtered(){let f=document.getElementById("filter")?.value||"all",q=(doc
 function renderOrders(){let a=filtered();document.getElementById("orders").innerHTML=a.length?a.map(card).join(""):'<div class="empty">Пока нет заказов. Добавь первый найденный проект.</div>'}
 function statusChange(i,s){
  let o=db.orders.find(x=>x.id===i);if(!o)return;
+ if(s==="revision"){startFiveReviews(i);return}
  if(["wait","paid"].includes(s)&&!["wait","paid"].includes(o.status)&&!(o.qaFirst&&o.qaSecond)){alert("Сначала открой «Изменить» и отметь обе базовые проверки качества после фактического выполнения.");renderAll();return}
  if(["wait","paid"].includes(s)&&o.needsRevision&&!(Array.isArray(o.extraQa)&&o.extraQa.length===5&&o.extraQa.every(Boolean))){alert("После неудовлетворительного результата пройди все пять дополнительных циклов проверки и корректировки.");renderAll();return}
  o.status=s;save();
